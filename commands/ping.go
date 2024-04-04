@@ -24,6 +24,10 @@ func (pc *PingCommand) Register(s *discordgo.Session) *discordgo.ApplicationComm
 	}
 }
 
+func (pc *PingCommand) GetType() framework.CommandType {
+	return framework.CommandTypeApp
+}
+
 // Execute handles the execution logic for the "ping" command. When a user
 // invokes this command, Discord triggers this method, allowing the bot to
 // respond appropriately.

@@ -24,15 +24,8 @@ func (c *RemindCommand) Register(s *discordgo.Session) *discordgo.ApplicationCom
 	}
 }
 
-func (c *RemindCommand) Execute(ctx *framework.Context) {
-	// NOP
-	//
-	// This command is a parent command and does not have any  execution logic.
-	// It is used to group subcommands.
-}
-
-func (c *RemindCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
-	/* NOP */
+func (c *RemindCommand) GetType() framework.CommandType {
+	return framework.CommandTypeNOP
 }
 
 // This is the subcommand for adding a reminder to the bot. The user can specify
@@ -67,6 +60,10 @@ func (c *RemindAddSubCommand) Register(s *discordgo.Session) *discordgo.Applicat
 			},
 		},
 	}
+}
+
+func (c *RemindAddSubCommand) GetType() framework.CommandType {
+	return framework.CommandTypeApp
 }
 
 func (c *RemindAddSubCommand) Execute(ctx *framework.Context) {
@@ -149,10 +146,6 @@ func (c *RemindAddSubCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (com *RemindAddSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
-	/* NOP */
-}
-
 // This is the subcommand for deleting a reminder from the bot. The user can
 // specify the ID of the reminder to delete and the bot will remove the reminder
 // from the list of reminders.
@@ -179,6 +172,10 @@ func (c *RemindDeleteSubCommand) Register(s *discordgo.Session) *discordgo.Appli
 			},
 		},
 	}
+}
+
+func (c *RemindDeleteSubCommand) GetType() framework.CommandType {
+	return framework.CommandTypeApp
 }
 
 func (c *RemindDeleteSubCommand) Execute(ctx *framework.Context) {
@@ -226,10 +223,6 @@ func (c *RemindDeleteSubCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (c *RemindDeleteSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
-	/* NOP */
-}
-
 // This is the subcommand for listing all reminders for the user. The user can
 // view all reminders that they have created and are able to delete or check
 // the status of.
@@ -247,6 +240,10 @@ func (c *RemindListSubCommand) Register(s *discordgo.Session) *discordgo.Applica
 		Name:        "list",
 		Description: "List all reminders",
 	}
+}
+
+func (c *RemindListSubCommand) GetType() framework.CommandType {
+	return framework.CommandTypeApp
 }
 
 func (c *RemindListSubCommand) Execute(ctx *framework.Context) {
@@ -296,10 +293,6 @@ func (c *RemindListSubCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (c *RemindListSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
-	/* NOP */
-}
-
 // This is the subcommand for checking the status of a reminder. The user can
 // specify the ID of the reminder to check and the bot will respond with the
 // time left until the reminder is triggered. It will only respond if the user
@@ -326,6 +319,10 @@ func (c *RemindStatusSubCommand) Register(s *discordgo.Session) *discordgo.Appli
 			},
 		},
 	}
+}
+
+func (c *RemindStatusSubCommand) GetType() framework.CommandType {
+	return framework.CommandTypeApp
 }
 
 func (c *RemindStatusSubCommand) Execute(ctx *framework.Context) {
@@ -366,8 +363,4 @@ func (c *RemindStatusSubCommand) Execute(ctx *framework.Context) {
 			Content: fmt.Sprintf("Time left for `[%d]`: `%s`", id.IntValue(), timeLeft.String()),
 		},
 	})
-}
-
-func (c *RemindStatusSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
-	/* NOP */
 }

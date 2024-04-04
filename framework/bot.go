@@ -93,15 +93,14 @@ func (b *Bot) registerAllCommandsAndRouting() {
 
 	// Handle the route execution
 	b.Discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		var routeKey string = ""
+		var eventValue string = ""
 
 		// Route Key is the name of the command dot separated by the subcommands
 		// e.g. "remind" or "remind.add". It is slightly different for the
 		// message components and modals as they should have the CustomID with
 		// the format of "command.subcommand:value" so the route key is the
 		// part before the colon.
-		var routeKey string
-		var eventValue string
-
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
 			routeKey = appKeyBuilder(i)
@@ -109,6 +108,16 @@ func (b *Bot) registerAllCommandsAndRouting() {
 			routeKey, eventValue, _ = strings.Cut(i.MessageComponentData().CustomID, ":")
 		case discordgo.InteractionModalSubmit:
 			routeKey, eventValue, _ = strings.Cut(i.ModalSubmitData().CustomID, ":")
+		default:
+			b.lg.Errorf("Unknown interaction type: %s", i.Type.String())
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Unknwon Interaction",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
 		}
 
 		// Create a new context for the route
@@ -119,7 +128,7 @@ func (b *Bot) registerAllCommandsAndRouting() {
 			withMessage(i.Interaction.Message),
 			withLogger(b.lg.WithFields(log.Fields{
 				"route": routeKey,
-				"type":  i.Type,
+				"type":  i.Type.String(),
 			})),
 		)
 
@@ -128,19 +137,22 @@ func (b *Bot) registerAllCommandsAndRouting() {
 			if er, ok := route.commandRoute[routeKey]; ok {
 
 				// If the route is found and it is just a command, execute it
-				if i.Type == discordgo.InteractionApplicationCommand {
+				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType() == CommandTypeApp || er.GetType() == CommandTypeAppAndEvent) {
 					b.lg.Infof("Executing command: %s", routeKey)
 					er.Execute(ctx)
 					return
 				}
 
-				// Set the event value for the route
-				withEventValue(eventValue)(ctx)
-
 				// If the route is found and it is an event handler, execute it
-				b.lg.Infof("Executing event: %s", routeKey)
-				er.OnEvent(ctx, i.Type)
-				return
+				if i.Type != discordgo.InteractionApplicationCommand && (er.GetType() == CommandTypeEvent || er.GetType() == CommandTypeAppAndEvent) {
+					// Set the event value for the route
+					withEventValue(eventValue)(ctx)
+
+					// If the route is found and it is an event handler, execute it
+					b.lg.Infof("Executing event: %s", routeKey)
+					er.OnEvent(ctx, i.Type)
+					return
+				}
 			}
 		}
 
@@ -148,7 +160,7 @@ func (b *Bot) registerAllCommandsAndRouting() {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Command not found",
+				Content: "Interaction not found",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})

@@ -58,16 +58,16 @@ func main() {
 
 	// Register routes
 	bot.Register(
-		framework.NewRoute(bot, "ping", true, &commands.PingCommand{}),
+		framework.NewRoute(bot, "ping", &commands.PingCommand{}),
 
 		framework.NewRoute(bot, "remind",
-			false, &commands.RemindCommand{},
+			&commands.RemindCommand{},
 
 			// remind <subcommand>
-			framework.NewSubRoute(bot, "add", true, &commands.RemindAddSubCommand{}),
-			framework.NewSubRoute(bot, "del", true, &commands.RemindDeleteSubCommand{}),
-			framework.NewSubRoute(bot, "list", true, &commands.RemindListSubCommand{}),
-			framework.NewSubRoute(bot, "status", true, &commands.RemindStatusSubCommand{}),
+			framework.NewSubRoute(bot, "add", &commands.RemindAddSubCommand{}),
+			framework.NewSubRoute(bot, "del", &commands.RemindDeleteSubCommand{}),
+			framework.NewSubRoute(bot, "list", &commands.RemindListSubCommand{}),
+			framework.NewSubRoute(bot, "status", &commands.RemindStatusSubCommand{}),
 		),
 	)
 

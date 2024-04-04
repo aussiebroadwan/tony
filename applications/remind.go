@@ -1,4 +1,4 @@
-package commands
+package applications
 
 import (
 	"fmt"

@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/aussiebroadwan/tony/commands"
+	"github.com/aussiebroadwan/tony/applications"
 	"github.com/aussiebroadwan/tony/database"
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/moderation"
@@ -58,16 +58,18 @@ func main() {
 
 	// Register routes
 	bot.Register(
-		framework.NewRoute(bot, "ping", &commands.PingCommand{}),
+		// ping
+		framework.NewRoute(bot, "ping", &applications.PingCommand{}),
 
 		framework.NewRoute(bot, "remind",
-			&commands.RemindCommand{},
+			// remind
+			&applications.RemindCommand{}, // [NOP]
 
 			// remind <subcommand>
-			framework.NewSubRoute(bot, "add", &commands.RemindAddSubCommand{}),
-			framework.NewSubRoute(bot, "del", &commands.RemindDeleteSubCommand{}),
-			framework.NewSubRoute(bot, "list", &commands.RemindListSubCommand{}),
-			framework.NewSubRoute(bot, "status", &commands.RemindStatusSubCommand{}),
+			framework.NewSubRoute(bot, "add", &applications.RemindAddSubCommand{}),
+			framework.NewSubRoute(bot, "del", &applications.RemindDeleteSubCommand{}),
+			framework.NewSubRoute(bot, "list", &applications.RemindListSubCommand{}),
+			framework.NewSubRoute(bot, "status", &applications.RemindStatusSubCommand{}),
 		),
 	)
 

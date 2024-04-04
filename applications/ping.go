@@ -83,7 +83,7 @@ func (pc *PingButtonCommand) Execute(ctx *framework.Context) {
 						discordgo.Button{
 							Label: "Ping",
 							Style: discordgo.SuccessButton,
-							Emoji: discordgo.ComponentEmoji{
+							Emoji: &discordgo.ComponentEmoji{
 								Name: "🏓",
 							},
 							CustomID: "ping.button:ping",

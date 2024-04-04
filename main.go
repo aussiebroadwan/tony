@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/aussiebroadwan/tony/commands"
+	"github.com/aussiebroadwan/tony/applications"
 	"github.com/aussiebroadwan/tony/database"
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/moderation"
@@ -18,8 +18,8 @@ import (
 const VERSION = "0.1.0"
 
 var (
-	token    = os.Getenv("DISCORD_TOKEN")
-	serverId = os.Getenv("DISCORD_SERVER_ID")
+	token    = ""
+	serverId = ""
 )
 
 func init() {
@@ -28,7 +28,12 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
-	godotenv.Load()
+	// Load environment variables from .env file if it exists
+	godotenv.Load(".env")
+
+	// Load environment variables into global variables
+	token = os.Getenv("DISCORD_TOKEN")
+	serverId = os.Getenv("DISCORD_SERVER_ID")
 
 	// Check if token is provided
 	if token == "" {
@@ -58,16 +63,23 @@ func main() {
 
 	// Register routes
 	bot.Register(
-		framework.NewRoute(bot, "ping", true, &commands.PingCommand{}),
+		framework.NewRoute(bot, "ping",
+			// ping
+			&applications.PingCommand{},
+
+			// ping button
+			framework.NewSubRoute(bot, "button", &applications.PingButtonCommand{}),
+		),
 
 		framework.NewRoute(bot, "remind",
-			false, &commands.RemindCommand{},
+			// remind
+			&applications.RemindCommand{}, // [NOP]
 
 			// remind <subcommand>
-			framework.NewSubRoute(bot, "add", true, &commands.RemindAddSubCommand{}),
-			framework.NewSubRoute(bot, "del", true, &commands.RemindDeleteSubCommand{}),
-			framework.NewSubRoute(bot, "list", true, &commands.RemindListSubCommand{}),
-			framework.NewSubRoute(bot, "status", true, &commands.RemindStatusSubCommand{}),
+			framework.NewSubRoute(bot, "add", &applications.RemindAddSubCommand{}),
+			framework.NewSubRoute(bot, "del", &applications.RemindDeleteSubCommand{}),
+			framework.NewSubRoute(bot, "list", &applications.RemindListSubCommand{}),
+			framework.NewSubRoute(bot, "status", &applications.RemindStatusSubCommand{}),
 		),
 	)
 

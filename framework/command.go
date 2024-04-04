@@ -6,19 +6,29 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// EventType is a custom type to define various event types a command can handle
-type EventType string
+type CommandType int
 
 const (
-	CommandType EventType = "command"
-	ButtonType  EventType = "button"
-	SelectType  EventType = "select"
-	// Additional event types can be added here
+	// CommandTypeNOP is a command that does nothing and is used as a
+	// routing placeholder for parent commands
+	CommandTypeNOP CommandType = iota
+
+	// CommandTypeApp is an application command that is executed by a user
+	CommandTypeApp
+
+	// CommandTypeEvent is an event command that handles user interactions with
+	// message components or modals
+	CommandTypeEvent
+
+	// CommandTypeAppAndEvent is a command that can be executed by a user and
+	// also handles by an event
+	CommandTypeAppAndEvent
 )
 
 type Command interface {
-	Execute(ctx *Context)                      // Executed for slash commands
-	OnEvent(ctx *Context, eventType EventType) // Handles various event types
+	GetType() CommandType                                      // Returns the type of command
+	Execute(ctx *Context)                                      // Executed for slash commands
+	OnEvent(ctx *Context, eventType discordgo.InteractionType) // Handles various event types
 }
 
 // Command interface now includes OnEvent instead of OnButton and OnSelect
@@ -35,7 +45,6 @@ type SubCommand interface {
 // Route associates a command name with a command instance and optional subcommands
 type Route struct {
 	Name      string
-	Executes  bool
 	Command   AppCommand
 	SubRoutes []SubRoute
 
@@ -44,10 +53,9 @@ type Route struct {
 }
 
 // NewRoute constructs a new Route
-func NewRoute(bot *Bot, name string, executionLogic bool, command AppCommand, subroutes ...SubRoute) Route {
+func NewRoute(bot *Bot, name string, command AppCommand, subroutes ...SubRoute) Route {
 	r := Route{
 		Name:         name,
-		Executes:     executionLogic,
 		Command:      command,
 		SubRoutes:    subroutes,
 		declaration:  command.Register(bot.Discord),
@@ -62,7 +70,8 @@ func NewRoute(bot *Bot, name string, executionLogic bool, command AppCommand, su
 		r.declaration.Options = append(r.declaration.Options, sr.declaration)
 	}
 
-	if executionLogic {
+	// Add the command to the command route
+	if command.GetType() != CommandTypeNOP {
 		r.commandRoute[name] = command
 	}
 
@@ -71,7 +80,6 @@ func NewRoute(bot *Bot, name string, executionLogic bool, command AppCommand, su
 
 type SubRoute struct {
 	Name       string
-	Executes   bool
 	SubCommand SubCommand
 	SubRoutes  []SubRoute
 
@@ -79,10 +87,9 @@ type SubRoute struct {
 	commandRoute map[string]Command
 }
 
-func NewSubRoute(bot *Bot, name string, executionLogic bool, subcommand SubCommand, subroutes ...SubRoute) SubRoute {
+func NewSubRoute(bot *Bot, name string, subcommand SubCommand, subroutes ...SubRoute) SubRoute {
 	r := SubRoute{
 		Name:       name,
-		Executes:   executionLogic,
 		SubCommand: subcommand,
 		SubRoutes:  subroutes,
 
@@ -103,7 +110,7 @@ func NewSubRoute(bot *Bot, name string, executionLogic bool, subcommand SubComma
 	}
 
 	// Add the subcommand to the command route
-	if executionLogic {
+	if subcommand.GetType() != CommandTypeNOP {
 		r.commandRoute[name] = subcommand
 	}
 

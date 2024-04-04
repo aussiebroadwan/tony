@@ -137,14 +137,14 @@ func (b *Bot) registerAllCommandsAndRouting() {
 			if er, ok := route.commandRoute[routeKey]; ok {
 
 				// If the route is found and it is just a command, execute it
-				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType() != CommandTypeEvent) {
+				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType()&AppTypeCommand != 0) {
 					b.lg.Infof("Executing command: %s", routeKey)
-					er.Execute(ctx)
+					er.OnCommand(ctx)
 					return
 				}
 
 				// If the route is found and it is an event handler, execute it
-				if i.Type != discordgo.InteractionApplicationCommand && (er.GetType() != CommandTypeApp) {
+				if i.Type != discordgo.InteractionApplicationCommand && (er.GetType()&AppTypeEvent != 0) {
 					// Set the event value for the route
 					withEventValue(eventValue)(ctx)
 

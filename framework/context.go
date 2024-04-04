@@ -105,5 +105,5 @@ func (c *Context) Logger() *log.Entry {
 }
 
 func (c *Context) EventValue() string {
-	return c.ctx.Value(CtxLogger).(string)
+	return c.ctx.Value(CtxEventValue).(string)
 }

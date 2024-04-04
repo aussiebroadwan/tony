@@ -63,8 +63,13 @@ func main() {
 
 	// Register routes
 	bot.Register(
-		// ping
-		framework.NewRoute(bot, "ping", &applications.PingCommand{}),
+		framework.NewRoute(bot, "ping",
+			// ping
+			&applications.PingCommand{},
+
+			// ping button
+			framework.NewSubRoute(bot, "button", &applications.PingButtonCommand{}),
+		),
 
 		framework.NewRoute(bot, "remind",
 			// remind

@@ -137,14 +137,14 @@ func (b *Bot) registerAllCommandsAndRouting() {
 			if er, ok := route.commandRoute[routeKey]; ok {
 
 				// If the route is found and it is just a command, execute it
-				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType() != CommandTypeEvent) {
+				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType()&AppTypeCommand != 0) {
 					b.lg.Infof("Executing command: %s", routeKey)
-					er.Execute(ctx)
+					er.OnCommand(ctx)
 					return
 				}
 
 				// If the route is found and it is an event handler, execute it
-				if i.Type != discordgo.InteractionApplicationCommand && (er.GetType() != CommandTypeApp) {
+				if i.Type != discordgo.InteractionApplicationCommand && (er.GetType()&AppTypeEvent != 0) {
 					// Set the event value for the route
 					withEventValue(eventValue)(ctx)
 
@@ -179,7 +179,7 @@ func (b *Bot) deregisterAllCommands() {
 	}
 }
 
-func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
+func (b *Bot) RegisterRules(rules ...ActionableRule) {
 	b.Discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == s.State.User.ID {
 			return
@@ -193,16 +193,100 @@ func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
 
 		// Test a regex match for the channel name against the rule
 		for _, rule := range rules {
+
+			// Check if the rule is a moderation rule
+			if rule.Rule.GetType() != ApplicationRuleTypeModeration {
+				continue
+			}
+
+			// Check if the channel matches the rule
 			if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
 
 				// Test the rule
 				if err := rule.Rule.Test(m.Content); err != nil {
 					rule.Rule.Action(NewContext(
 						withSession(s),
-						withInteraction(nil), // No interaction for messages
 						withMessage(m.Message),
-						withLogger(b.lg.WithField("rule", rule.Rule.Name())),
 						withDatabase(b.db),
+						withLogger(b.lg.WithFields(log.Fields{
+							"rule": rule.Rule.Name(),
+							"type": "moderation",
+						})),
+					), err)
+				}
+			}
+		}
+	})
+
+	b.Discord.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+		if r.UserID == s.State.User.ID {
+			return
+		}
+
+		// Get Channel Name from Message
+		channel, err := s.State.Channel(r.ChannelID)
+		if err != nil {
+			return
+		}
+
+		// Test a regex match for the channel name against the rule
+		for _, rule := range rules {
+
+			// Check if the rule is a reaction rule
+			if rule.Rule.GetType() != ApplicationRuleTypeReactions {
+				continue
+			}
+
+			// Check if the channel matches the rule
+			if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
+
+				// Test the rule
+				if err := rule.Rule.Test(r.Emoji.Name); err != nil {
+					rule.Rule.Action(NewContext(
+						withSession(s),
+						withDatabase(b.db),
+						withReaction(r.MessageReaction, true),
+						withLogger(b.lg.WithFields(log.Fields{
+							"rule": rule.Rule.Name(),
+							"type": "reaction_add",
+						})),
+					), err)
+				}
+			}
+		}
+	})
+	b.Discord.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
+		if r.UserID == s.State.User.ID {
+			return
+		}
+
+		// Get Channel Name from Message
+		channel, err := s.State.Channel(r.ChannelID)
+		if err != nil {
+			return
+		}
+
+		// Test a regex match for the channel name against the rule
+		for _, rule := range rules {
+
+			// Check if the rule is a reaction rule
+			if rule.Rule.GetType() != ApplicationRuleTypeReactions {
+				continue
+			}
+
+			// Check if the channel matches the rule
+			if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
+
+				// Test the rule
+				if err := rule.Rule.Test(r.Emoji.Name); err != nil {
+					rule.Rule.Action(NewContext(
+						withSession(s),
+						withDatabase(b.db),
+						withReaction(r.MessageReaction, false),
+						withLogger(b.lg.WithFields(log.Fields{
+							"rule": rule.Rule.Name(),
+							"type": "reaction_remove",
+						})),
 					), err)
 				}
 			}

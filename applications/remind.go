@@ -11,7 +11,7 @@ import (
 )
 
 type RemindCommand struct {
-	framework.Command
+	framework.Application
 }
 
 // Register is responsible for registering the "remind" command with
@@ -24,8 +24,8 @@ func (c *RemindCommand) Register(s *discordgo.Session) *discordgo.ApplicationCom
 	}
 }
 
-func (c *RemindCommand) GetType() framework.CommandType {
-	return framework.CommandTypeNOP
+func (c *RemindCommand) GetType() framework.AppType {
+	return framework.AppTypeNOP
 }
 
 // This is the subcommand for adding a reminder to the bot. The user can specify
@@ -62,11 +62,11 @@ func (c *RemindAddSubCommand) Register(s *discordgo.Session) *discordgo.Applicat
 	}
 }
 
-func (c *RemindAddSubCommand) GetType() framework.CommandType {
-	return framework.CommandTypeApp
+func (c *RemindAddSubCommand) GetType() framework.AppType {
+	return framework.AppTypeCommand
 }
 
-func (c *RemindAddSubCommand) Execute(ctx *framework.Context) {
+func (c *RemindAddSubCommand) OnCommand(ctx *framework.Context) {
 	interaction := ctx.Interaction()
 	db := ctx.Database()
 	commandOptions := interaction.ApplicationCommandData().Options[0].Options
@@ -174,11 +174,11 @@ func (c *RemindDeleteSubCommand) Register(s *discordgo.Session) *discordgo.Appli
 	}
 }
 
-func (c *RemindDeleteSubCommand) GetType() framework.CommandType {
-	return framework.CommandTypeApp
+func (c *RemindDeleteSubCommand) GetType() framework.AppType {
+	return framework.AppTypeCommand
 }
 
-func (c *RemindDeleteSubCommand) Execute(ctx *framework.Context) {
+func (c *RemindDeleteSubCommand) OnCommand(ctx *framework.Context) {
 	interaction := ctx.Interaction()
 	db := ctx.Database()
 	commandOptions := interaction.ApplicationCommandData().Options[0].Options
@@ -242,11 +242,11 @@ func (c *RemindListSubCommand) Register(s *discordgo.Session) *discordgo.Applica
 	}
 }
 
-func (c *RemindListSubCommand) GetType() framework.CommandType {
-	return framework.CommandTypeApp
+func (c *RemindListSubCommand) GetType() framework.AppType {
+	return framework.AppTypeCommand
 }
 
-func (c *RemindListSubCommand) Execute(ctx *framework.Context) {
+func (c *RemindListSubCommand) OnCommand(ctx *framework.Context) {
 	interaction := ctx.Interaction()
 
 	// Get all reminders
@@ -321,11 +321,11 @@ func (c *RemindStatusSubCommand) Register(s *discordgo.Session) *discordgo.Appli
 	}
 }
 
-func (c *RemindStatusSubCommand) GetType() framework.CommandType {
-	return framework.CommandTypeApp
+func (c *RemindStatusSubCommand) GetType() framework.AppType {
+	return framework.AppTypeCommand
 }
 
-func (c *RemindStatusSubCommand) Execute(ctx *framework.Context) {
+func (c *RemindStatusSubCommand) OnCommand(ctx *framework.Context) {
 	interaction := ctx.Interaction()
 	commandOptions := interaction.ApplicationCommandData().Options[0].Options
 

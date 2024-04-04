@@ -24,13 +24,13 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 		reminded BOOLEAN DEFAULT FALSE
 	)`)
 	if err != nil {
-		log.WithField("src", "database").WithError(err).Fatal("Failed to create reminders table")
+		log.WithField("src", "database.SetupRemindersDB").WithError(err).Fatal("Failed to create reminders table")
 	}
 
 	// Load all reminders from the database
 	rows, err := db.Query(`SELECT id, created_by, channel_id, trigger_time, message, reminded FROM reminders`)
 	if err != nil {
-		log.WithField("src", "database").WithError(err).Fatal("Failed to load reminders from database")
+		log.WithField("src", "database.SetupRemindersDB").WithError(err).Fatal("Failed to load reminders from database")
 	}
 
 	var loadReminders = make(map[int64]reminders.Reminder)
@@ -43,14 +43,14 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 
 		err := rows.Scan(&id, &createdBy, &channelId, &triggerTime, &message, &reminded)
 		if err != nil {
-			log.WithField("src", "database").WithError(err).Error("Failed to scan reminder row")
+			log.WithField("src", "database.SetupRemindersDB").WithError(err).Error("Failed to scan reminder row")
 			continue
 		}
 
 		// Parse the trigger time
 		t, err := time.ParseInLocation(time.DateTime, triggerTime, time.Local)
 		if err != nil {
-			log.WithField("src", "database").WithError(err).Error("Failed to parse trigger time")
+			log.WithField("src", "database.SetupRemindersDB").WithError(err).Error("Failed to parse trigger time")
 			continue
 		}
 
@@ -81,7 +81,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 				// Set the reminder as reminded
 				_, err := db.Exec(`UPDATE reminders SET reminded = TRUE WHERE id = ?`, id)
 				if err != nil {
-					log.WithField("src", "database").WithError(err).Errorf("Failed to mark reminder %d as reminded", id)
+					log.WithField("src", "database.SetupRemindersDB").WithError(err).Errorf("Failed to mark reminder %d as reminded", id)
 				}
 			},
 		}
@@ -99,7 +99,7 @@ func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *d
 		// Set the reminder as reminded
 		_, err := db.Exec(`UPDATE reminders SET reminded = TRUE WHERE id = ?`, id)
 		if err != nil {
-			log.WithField("src", "database").WithError(err).Errorf("Failed to mark reminder %d as reminded", id)
+			log.WithField("src", "database.AddReminder").WithError(err).Errorf("Failed to mark reminder %d as reminded", id)
 		}
 	})
 

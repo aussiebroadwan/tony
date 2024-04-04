@@ -11,7 +11,7 @@ import (
 // with a simple "Pong!" message. This command demonstrates a basic
 // interaction within Discord using the discordgo package.
 type PingCommand struct {
-	framework.Command
+	framework.AppCommand
 }
 
 // Register is responsible for registering the "ping" command with
@@ -24,14 +24,14 @@ func (pc *PingCommand) Register(s *discordgo.Session) *discordgo.ApplicationComm
 	}
 }
 
-func (pc *PingCommand) GetType() framework.CommandType {
-	return framework.CommandTypeApp
+func (pc *PingCommand) GetType() framework.AppType {
+	return framework.AppTypeCommand
 }
 
-// Execute handles the execution logic for the "ping" command. When a user
+// OnCommand handles the execution logic for the "ping" command. When a user
 // invokes this command, Discord triggers this method, allowing the bot to
 // respond appropriately.
-func (pc *PingCommand) Execute(ctx *framework.Context) {
+func (pc *PingCommand) OnCommand(ctx *framework.Context) {
 	interaction := ctx.Interaction()
 
 	user := interaction.Member.User
@@ -55,8 +55,8 @@ type PingButtonCommand struct {
 	framework.SubCommand
 }
 
-func (pc *PingButtonCommand) GetType() framework.CommandType {
-	return framework.CommandTypeAppAndEvent
+func (pc *PingButtonCommand) GetType() framework.AppType {
+	return framework.AppTypeCommand | framework.AppTypeEvent
 }
 
 // Register is responsible for registering the "ping.button" command with
@@ -70,10 +70,10 @@ func (pc *PingButtonCommand) Register(s *discordgo.Session) *discordgo.Applicati
 	}
 }
 
-// Execute handles the execution logic for the "ping.button" command. When a
+// OnCommand handles the execution logic for the "ping.button" command. When a
 // user invokes this command, Discord triggers this method, allowing the bot
 // to post a button that the user can interact with.
-func (pc *PingButtonCommand) Execute(ctx *framework.Context) {
+func (pc *PingButtonCommand) OnCommand(ctx *framework.Context) {
 	err := ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{

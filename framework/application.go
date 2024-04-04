@@ -6,40 +6,36 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type CommandType int
+type AppType int
 
 const (
-	// CommandTypeNOP is a command that does nothing and is used as a
+	// AppTypeNOP is a command that does nothing and is used as a
 	// routing placeholder for parent commands
-	CommandTypeNOP CommandType = iota
+	AppTypeNOP AppType = 1
 
-	// CommandTypeApp is an application command that is executed by a user
-	CommandTypeApp
+	// AppTypeCommand is an application command that is executed by a user
+	AppTypeCommand AppType = 1 << 1
 
-	// CommandTypeEvent is an event command that handles user interactions with
+	// AppTypeEvent is an event command that handles user interactions with
 	// message components or modals
-	CommandTypeEvent
-
-	// CommandTypeAppAndEvent is a command that can be executed by a user and
-	// also handles by an event
-	CommandTypeAppAndEvent
+	AppTypeEvent AppType = 1 << 2
 )
 
-type Command interface {
-	GetType() CommandType                                      // Returns the type of command
-	Execute(ctx *Context)                                      // Executed for slash commands
+type Application interface {
+	GetType() AppType                                          // Returns the type of command
+	OnCommand(ctx *Context)                                    // Executed for slash commands
 	OnEvent(ctx *Context, eventType discordgo.InteractionType) // Handles various event types
 }
 
 // Command interface now includes OnEvent instead of OnButton and OnSelect
 type AppCommand interface {
 	Register(s *discordgo.Session) *discordgo.ApplicationCommand
-	Command
+	Application
 }
 
 type SubCommand interface {
 	Register(s *discordgo.Session) *discordgo.ApplicationCommandOption
-	Command
+	Application
 }
 
 // Route associates a command name with a command instance and optional subcommands
@@ -49,7 +45,7 @@ type Route struct {
 	SubRoutes []SubRoute
 
 	declaration  *discordgo.ApplicationCommand
-	commandRoute map[string]Command
+	commandRoute map[string]Application
 }
 
 // NewRoute constructs a new Route
@@ -59,7 +55,7 @@ func NewRoute(bot *Bot, name string, command AppCommand, subroutes ...SubRoute) 
 		Command:      command,
 		SubRoutes:    subroutes,
 		declaration:  command.Register(bot.Discord),
-		commandRoute: make(map[string]Command),
+		commandRoute: make(map[string]Application),
 	}
 
 	for _, sr := range subroutes {
@@ -71,7 +67,7 @@ func NewRoute(bot *Bot, name string, command AppCommand, subroutes ...SubRoute) 
 	}
 
 	// Add the command to the command route
-	if command.GetType() != CommandTypeNOP {
+	if command.GetType() != AppTypeNOP {
 		r.commandRoute[name] = command
 	}
 
@@ -84,7 +80,7 @@ type SubRoute struct {
 	SubRoutes  []SubRoute
 
 	declaration  *discordgo.ApplicationCommandOption
-	commandRoute map[string]Command
+	commandRoute map[string]Application
 }
 
 func NewSubRoute(bot *Bot, name string, subcommand SubCommand, subroutes ...SubRoute) SubRoute {
@@ -94,7 +90,7 @@ func NewSubRoute(bot *Bot, name string, subcommand SubCommand, subroutes ...SubR
 		SubRoutes:  subroutes,
 
 		declaration:  subcommand.Register(bot.Discord),
-		commandRoute: make(map[string]Command),
+		commandRoute: make(map[string]Application),
 	}
 
 	// Check if the subroute has subroutes
@@ -110,7 +106,7 @@ func NewSubRoute(bot *Bot, name string, subcommand SubCommand, subroutes ...SubR
 	}
 
 	// Add the subcommand to the command route
-	if subcommand.GetType() != CommandTypeNOP {
+	if subcommand.GetType() != AppTypeNOP {
 		r.commandRoute[name] = subcommand
 	}
 

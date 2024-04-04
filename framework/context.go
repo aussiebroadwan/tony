@@ -19,6 +19,9 @@ const (
 	CtxDatabase    ContextKey = "db"
 	CtxLogger      ContextKey = "logger"
 	CtxEventValue  ContextKey = "event_val"
+
+	CtxReactionValue ContextKey = "reaction_val"
+	CtxReactionAdd   ContextKey = "reaction_add"
 )
 
 type ContextOpt func(*Context)
@@ -56,6 +59,13 @@ func withLogger(l *log.Entry) ContextOpt {
 func withEventValue(v string) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxEventValue, v)
+	}
+}
+
+func withReaction(r *discordgo.MessageReaction, add bool) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, CtxReactionValue, r)
+		c.ctx = context.WithValue(c.ctx, CtxReactionAdd, add)
 	}
 }
 
@@ -106,4 +116,9 @@ func (c *Context) Logger() *log.Entry {
 
 func (c *Context) EventValue() string {
 	return c.ctx.Value(CtxEventValue).(string)
+}
+
+func (c *Context) Reaction() (*discordgo.MessageReaction, bool) {
+	val, add := c.ctx.Value(CtxReactionValue), c.ctx.Value(CtxReactionAdd)
+	return val.(*discordgo.MessageReaction), add.(bool)
 }

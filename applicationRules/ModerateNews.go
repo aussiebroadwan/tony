@@ -1,4 +1,4 @@
-package moderation
+package applicationrules
 
 import (
 	"errors"
@@ -29,7 +29,7 @@ import (
 // send a message to the user to let them know that the message was deleted and
 // why.
 type ModerateNewsRule struct {
-	framework.ModerateRule
+	framework.ApplicationRule
 }
 
 var (
@@ -40,6 +40,10 @@ var (
 
 func (r *ModerateNewsRule) Name() string {
 	return "tech-news"
+}
+
+func (r *ModerateNewsRule) GetType() framework.ApplicationRuleType {
+	return framework.ApplicationRuleTypeModeration
 }
 
 // Test tests the rule against the content

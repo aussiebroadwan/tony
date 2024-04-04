@@ -4,10 +4,11 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/aussiebroadwan/tony/applications"
+	rules "github.com/aussiebroadwan/tony/applicationRules"
+	app "github.com/aussiebroadwan/tony/applications"
+
 	"github.com/aussiebroadwan/tony/database"
 	"github.com/aussiebroadwan/tony/framework"
-	"github.com/aussiebroadwan/tony/moderation"
 	"github.com/aussiebroadwan/tony/pkg/reminders"
 
 	"github.com/joho/godotenv"
@@ -65,27 +66,29 @@ func main() {
 	bot.Register(
 		framework.NewRoute(bot, "ping",
 			// ping
-			&applications.PingCommand{},
+			&app.PingCommand{},
 
 			// ping button
-			framework.NewSubRoute(bot, "button", &applications.PingButtonCommand{}),
+			framework.NewSubRoute(bot, "button", &app.PingButtonCommand{}),
 		),
 
 		framework.NewRoute(bot, "remind",
 			// remind
-			&applications.RemindCommand{}, // [NOP]
+			&app.RemindCommand{}, // [NOP]
 
 			// remind <subcommand>
-			framework.NewSubRoute(bot, "add", &applications.RemindAddSubCommand{}),
-			framework.NewSubRoute(bot, "del", &applications.RemindDeleteSubCommand{}),
-			framework.NewSubRoute(bot, "list", &applications.RemindListSubCommand{}),
-			framework.NewSubRoute(bot, "status", &applications.RemindStatusSubCommand{}),
+			framework.NewSubRoute(bot, "add", &app.RemindAddSubCommand{}),
+			framework.NewSubRoute(bot, "del", &app.RemindDeleteSubCommand{}),
+			framework.NewSubRoute(bot, "list", &app.RemindListSubCommand{}),
+			framework.NewSubRoute(bot, "status", &app.RemindStatusSubCommand{}),
 		),
 	)
 
-	bot.DefineModerationRules(
-		framework.Rule("tech-news", &moderation.ModerateNewsRule{}),
-		framework.Rule("rss", &moderation.ModerateRSSRule{}),
+	bot.RegisterRules(
+		framework.Rule("tech-news", &rules.ModerateNewsRule{}),
+		framework.Rule("rss", &rules.ModerateRSSRule{}),
+
+		framework.Rule(".*", &rules.AutoPinRule{}),
 	)
 
 	// Run the bot
@@ -97,6 +100,7 @@ func main() {
 
 	// Setup reminders database, requires a discord session
 	database.SetupRemindersDB(db, bot.Discord)
+	database.SetupAutoPinDB(db)
 
 	waitForInterrupt()
 }

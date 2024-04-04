@@ -1,8 +1,16 @@
 package framework
 
-type ModerateRule interface {
+type ApplicationRuleType int
+
+const (
+	ApplicationRuleTypeModeration ApplicationRuleType = iota
+	ApplicationRuleTypeReactions
+)
+
+type ApplicationRule interface {
 	// Name of the rule
 	Name() string
+	GetType() ApplicationRuleType
 
 	// Test the rule against content
 	Test(content string) error
@@ -13,10 +21,10 @@ type ModerateRule interface {
 
 type ActionableRule struct {
 	Channel string
-	Rule    ModerateRule
+	Rule    ApplicationRule
 }
 
-func Rule(channel string, rule ModerateRule) ActionableRule {
+func Rule(channel string, rule ApplicationRule) ActionableRule {
 	return ActionableRule{
 		Channel: channel,
 		Rule:    rule,

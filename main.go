@@ -18,8 +18,8 @@ import (
 const VERSION = "0.1.0"
 
 var (
-	token    = os.Getenv("DISCORD_TOKEN")
-	serverId = os.Getenv("DISCORD_SERVER_ID")
+	token    = ""
+	serverId = ""
 )
 
 func init() {
@@ -28,7 +28,12 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
-	godotenv.Load()
+	// Load environment variables from .env file if it exists
+	godotenv.Load(".env")
+
+	// Load environment variables into global variables
+	token = os.Getenv("DISCORD_TOKEN")
+	serverId = os.Getenv("DISCORD_SERVER_ID")
 
 	// Check if token is provided
 	if token == "" {

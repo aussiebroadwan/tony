@@ -18,37 +18,44 @@ const (
 	CtxSession     ContextKey = "session"
 	CtxDatabase    ContextKey = "db"
 	CtxLogger      ContextKey = "logger"
+	CtxEventValue  ContextKey = "event_val"
 )
 
 type ContextOpt func(*Context)
 
-func WithDatabase(db *sql.DB) ContextOpt {
+func withDatabase(db *sql.DB) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxDatabase, db)
 	}
 }
 
-func WithInteraction(i *discordgo.Interaction) ContextOpt {
+func withInteraction(i *discordgo.Interaction) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxInteraction, i)
 	}
 }
 
-func WithSession(s *discordgo.Session) ContextOpt {
+func withSession(s *discordgo.Session) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxSession, s)
 	}
 }
 
-func WithMessage(m *discordgo.Message) ContextOpt {
+func withMessage(m *discordgo.Message) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxMessage, m)
 	}
 }
 
-func WithLogger(l *log.Entry) ContextOpt {
+func withLogger(l *log.Entry) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxLogger, l)
+	}
+}
+
+func withEventValue(v string) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, CtxEventValue, v)
 	}
 }
 
@@ -95,4 +102,8 @@ func (c *Context) Database() *sql.DB {
 
 func (c *Context) Logger() *log.Entry {
 	return c.ctx.Value(CtxLogger).(*log.Entry)
+}
+
+func (c *Context) EventValue() string {
+	return c.ctx.Value(CtxLogger).(string)
 }

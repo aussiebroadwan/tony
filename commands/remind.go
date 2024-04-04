@@ -31,7 +31,7 @@ func (c *RemindCommand) Execute(ctx *framework.Context) {
 	// It is used to group subcommands.
 }
 
-func (c *RemindCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) {
+func (c *RemindCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
 	/* NOP */
 }
 
@@ -149,7 +149,7 @@ func (c *RemindAddSubCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (com *RemindAddSubCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) {
+func (com *RemindAddSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
 	/* NOP */
 }
 
@@ -226,7 +226,7 @@ func (c *RemindDeleteSubCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (c *RemindDeleteSubCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) {
+func (c *RemindDeleteSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
 	/* NOP */
 }
 
@@ -296,7 +296,7 @@ func (c *RemindListSubCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (c *RemindListSubCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) {
+func (c *RemindListSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
 	/* NOP */
 }
 
@@ -368,6 +368,6 @@ func (c *RemindStatusSubCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (c *RemindStatusSubCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) {
+func (c *RemindStatusSubCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) {
 	/* NOP */
 }

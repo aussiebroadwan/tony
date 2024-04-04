@@ -6,19 +6,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// EventType is a custom type to define various event types a command can handle
-type EventType string
-
-const (
-	CommandType EventType = "command"
-	ButtonType  EventType = "button"
-	SelectType  EventType = "select"
-	// Additional event types can be added here
-)
-
 type Command interface {
-	Execute(ctx *Context)                      // Executed for slash commands
-	OnEvent(ctx *Context, eventType EventType) // Handles various event types
+	Execute(ctx *Context)                                      // Executed for slash commands
+	OnEvent(ctx *Context, eventType discordgo.InteractionType) // Handles various event types
 }
 
 // Command interface now includes OnEvent instead of OnButton and OnSelect

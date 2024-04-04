@@ -43,4 +43,5 @@ func (pc *PingCommand) Execute(ctx *framework.Context) {
 	})
 }
 
-func (pc *PingCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) { /* NOP */ }
+func (pc *PingCommand) OnEvent(ctx *framework.Context, eventType discordgo.InteractionType) { /* NOP */
+}

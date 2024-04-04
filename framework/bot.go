@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -92,25 +93,53 @@ func (b *Bot) registerAllCommandsAndRouting() {
 
 	// Handle the route execution
 	b.Discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		// TODO: Handle events such as Button interactions with Custom IDs etc.
-		if i.Type != discordgo.InteractionApplicationCommand {
-			return
+
+		// Route Key is the name of the command dot separated by the subcommands
+		// e.g. "remind" or "remind.add". It is slightly different for the
+		// message components and modals as they should have the CustomID with
+		// the format of "command.subcommand:value" so the route key is the
+		// part before the colon.
+		var routeKey string
+		var eventValue string
+
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			routeKey = appKeyBuilder(i)
+		case discordgo.InteractionMessageComponent:
+			routeKey, eventValue, _ = strings.Cut(i.MessageComponentData().CustomID, ":")
+		case discordgo.InteractionModalSubmit:
+			routeKey, eventValue, _ = strings.Cut(i.ModalSubmitData().CustomID, ":")
 		}
 
-		// Build the Route Key
-		routeKey := appKeyBuilder(i)
+		// Create a new context for the route
+		ctx := NewContext(
+			withSession(s),
+			withDatabase(b.db),
+			withInteraction(i.Interaction),
+			withMessage(i.Interaction.Message),
+			withLogger(b.lg.WithFields(log.Fields{
+				"route": routeKey,
+				"type":  i.Type,
+			})),
+		)
 
 		// Find the route
 		for _, route := range b.Routes {
 			if er, ok := route.commandRoute[routeKey]; ok {
-				b.lg.Infof("Executing route: %s", routeKey)
-				er.Execute(NewContext(
-					WithSession(s),
-					WithInteraction(i.Interaction),
-					WithMessage(i.Interaction.Message),
-					WithLogger(b.lg.WithField("route", routeKey)),
-					WithDatabase(b.db),
-				))
+
+				// If the route is found and it is just a command, execute it
+				if i.Type == discordgo.InteractionApplicationCommand {
+					b.lg.Infof("Executing command: %s", routeKey)
+					er.Execute(ctx)
+					return
+				}
+
+				// Set the event value for the route
+				withEventValue(eventValue)(ctx)
+
+				// If the route is found and it is an event handler, execute it
+				b.lg.Infof("Executing event: %s", routeKey)
+				er.OnEvent(ctx, i.Type)
 				return
 			}
 		}
@@ -157,11 +186,11 @@ func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
 				// Test the rule
 				if err := rule.Rule.Test(m.Content); err != nil {
 					rule.Rule.Action(NewContext(
-						WithSession(s),
-						WithInteraction(nil), // No interaction for messages
-						WithMessage(m.Message),
-						WithLogger(b.lg.WithField("rule", rule.Rule.Name())),
-						WithDatabase(b.db),
+						withSession(s),
+						withInteraction(nil), // No interaction for messages
+						withMessage(m.Message),
+						withLogger(b.lg.WithField("rule", rule.Rule.Name())),
+						withDatabase(b.db),
 					), err)
 				}
 			}

@@ -32,11 +32,6 @@ go build .
 ./tony
 ```
 
-
-### Running as a Container
-
-You will be able to get
-
 ## Current Bot Features
 
 There are only two main commands currently with Tony, the rest are application

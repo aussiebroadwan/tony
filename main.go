@@ -11,45 +11,34 @@ import (
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/pkg/reminders"
 
-	"github.com/joho/godotenv"
-
 	log "github.com/sirupsen/logrus"
 )
 
 const VERSION = "0.1.0"
-
-var (
-	token    = ""
-	serverId = ""
-)
 
 func init() {
 	// Setup logging
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
+}
 
-	// Load environment variables from .env file if it exists
-	godotenv.Load(".env")
+func main() {
+	// Print version
+	log.Infof("Tony v%s", VERSION)
 
-	// Load environment variables into global variables
-	token = os.Getenv("DISCORD_TOKEN")
-	serverId = os.Getenv("DISCORD_SERVER_ID")
+	// Setup database
+	db := database.NewDatabase("tony.db")
+	defer db.Close()
+
+	token := os.Getenv("DISCORD_TOKEN")
+	serverId := os.Getenv("DISCORD_SERVER_ID")
 
 	// Check if token is provided
 	if token == "" {
 		log.Fatal("No token provided. Please set DISCORD_TOKEN environment variable.")
 		return
 	}
-
-	// Print version
-	log.Infof("Tony v%s", VERSION)
-}
-
-func main() {
-	// Setup database
-	db := database.NewDatabase("tony.db")
-	defer db.Close()
 
 	// Create a new bot
 	bot, err := framework.NewBot(token, serverId, db)

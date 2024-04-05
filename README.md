@@ -32,11 +32,15 @@ go build .
 ./tony
 ```
 
-> **Note:** Future development will move the program into a Docker container for
->           easier deploying, but this is just a rush job to get a basic bot up 
->           and running.
+
+### Running as a Container
+
+You will be able to get
 
 ## Current Bot Features
+
+There are only two main commands currently with Tony, the rest are application
+rules that run on either specific channels or on all.
 
 - `ping`: 
     Sends the user a `Pong @<user>!` message. This is only for testing.
@@ -51,17 +55,22 @@ go build .
     - `del <id>`: Deletes a message, assuming the user owns the message
     - `status <id>`: Get how much time is left on a reminder
     - `list`: List the ID and times of all the user's reminders
-  
-- `tech-news` [**MODERATION**]:
-    A system to ensure posts being made in the `#tech-news` channel is in a 
-    specific format.
 
-- `rss` [**MODERATION**]:
-    A system to ensure posts being made in the `#rss` channel is in a specifc 
-    format.
+The following here are Application rules and not commands. This means they run
+on all messages limited to their registered channels, with the exception of
+`autopin` which is registered for all channels.
 
-- `autopin` [**REACTION**]:
-    A system which automatically pins messages if there are 5 or more 📌 reacts.
+- `tech-news`:
+    A moderation system to ensure posts being made in the `#tech-news` channel 
+    is in a specific format.
+
+- `rss`:
+    A moderation system to ensure posts being made in the `#rss` channel is in 
+    a specifc format.
+
+- `autopin`:
+    A reaction system which automatically pins messages if there are 5 or 
+    more 📌 reacts.
 
 [Go]: https://go.dev/
 [App Commands]: https://discord.com/developers/docs/interactions/application-commands

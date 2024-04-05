@@ -42,6 +42,7 @@ jobs:
 
 
   deploy:
+    needs: build
     runs-on: deploy
     steps:
 

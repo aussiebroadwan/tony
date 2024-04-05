@@ -41,6 +41,9 @@ go build .
 - `ping`: 
     Sends the user a `Pong @<user>!` message. This is only for testing.
 
+    - `ping button`: Responses with a button which the user can press for the
+        same functionality as the `ping` command
+
 - `remind`:
     A system to add deplayed message or reminders for users.
 
@@ -56,6 +59,9 @@ go build .
 - `rss` [**MODERATION**]:
     A system to ensure posts being made in the `#rss` channel is in a specifc 
     format.
+
+- `autopin` [**REACTION**]:
+    A system which automatically pins messages if there are 5 or more 📌 reacts.
 
 [Go]: https://go.dev/
 [App Commands]: https://discord.com/developers/docs/interactions/application-commands

@@ -16,4 +16,4 @@ jobs:
 
     steps:
     - name: Deploy Latest
-      run: docker run -d -e DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }} -e DISCORD_SERVER_ID={{ $DISCORD_SERVER_ID }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      run: docker run -d -e DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }} -e DISCORD_SERVER_ID=${{ secrets.DISCORD_SERVER_ID }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

@@ -2,71 +2,61 @@ package framework
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-
-	_ "github.com/mattn/go-sqlite3"
+	"gorm.io/gorm"
 )
 
 type ContextKey string
 
 const (
-	CtxInteraction ContextKey = "interaction"
-	CtxMessage     ContextKey = "message"
-	CtxSession     ContextKey = "session"
-	CtxDatabase    ContextKey = "db"
-	CtxLogger      ContextKey = "logger"
-	CtxEventValue  ContextKey = "event_val"
+	ctxInteraction ContextKey = "interaction"
+	ctxMessage     ContextKey = "message"
+	ctxSession     ContextKey = "session"
+	ctxDatabase    ContextKey = "db"
+	ctxLogger      ContextKey = "logger"
+	ctxEventValue  ContextKey = "event_val"
 
-	CtxReactionValue ContextKey = "reaction_val"
-	CtxReactionAdd   ContextKey = "reaction_add"
+	ctxReactionValue ContextKey = "reaction_val"
+	ctxReactionAdd   ContextKey = "reaction_add"
 )
 
-type ContextOpt func(*Context)
-
-func withDatabase(db *sql.DB) ContextOpt {
-	return func(c *Context) {
-		c.ctx = context.WithValue(c.ctx, CtxDatabase, db)
-	}
+type MountContext interface {
+	Session() *discordgo.Session
+	Database() *gorm.DB
+	Logger() *log.Entry
 }
 
-func withInteraction(i *discordgo.Interaction) ContextOpt {
-	return func(c *Context) {
-		c.ctx = context.WithValue(c.ctx, CtxInteraction, i)
-	}
+type CommandContext interface {
+	Session() *discordgo.Session
+	Message() *discordgo.Message
+	Interaction() *discordgo.Interaction
+	Database() *gorm.DB
+	Logger() *log.Entry
 }
 
-func withSession(s *discordgo.Session) ContextOpt {
-	return func(c *Context) {
-		c.ctx = context.WithValue(c.ctx, CtxSession, s)
-	}
+type EventContext interface {
+	Session() *discordgo.Session
+	Message() *discordgo.Message
+	Interaction() *discordgo.Interaction
+	Database() *gorm.DB
+	Logger() *log.Entry
+	EventValue() string
 }
 
-func withMessage(m *discordgo.Message) ContextOpt {
-	return func(c *Context) {
-		c.ctx = context.WithValue(c.ctx, CtxMessage, m)
-	}
+type MessageContext interface {
+	Session() *discordgo.Session
+	Message() *discordgo.Message
+	Database() *gorm.DB
+	Logger() *log.Entry
 }
 
-func withLogger(l *log.Entry) ContextOpt {
-	return func(c *Context) {
-		c.ctx = context.WithValue(c.ctx, CtxLogger, l)
-	}
-}
-
-func withEventValue(v string) ContextOpt {
-	return func(c *Context) {
-		c.ctx = context.WithValue(c.ctx, CtxEventValue, v)
-	}
-}
-
-func withReaction(r *discordgo.MessageReaction, add bool) ContextOpt {
-	return func(c *Context) {
-		c.ctx = context.WithValue(c.ctx, CtxReactionValue, r)
-		c.ctx = context.WithValue(c.ctx, CtxReactionAdd, add)
-	}
+type ReactionContext interface {
+	Session() *discordgo.Session
+	Database() *gorm.DB
+	Logger() *log.Entry
+	Reaction() (*discordgo.MessageReaction, bool)
 }
 
 // Context is a wrapper around the context.Context type that includes
@@ -76,6 +66,7 @@ type Context struct {
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 }
+type ContextOpt func(*Context)
 
 func NewContext(opts ...ContextOpt) *Context {
 
@@ -95,30 +86,73 @@ func NewContext(opts ...ContextOpt) *Context {
 }
 
 func (c *Context) Session() *discordgo.Session {
-	return c.ctx.Value(CtxSession).(*discordgo.Session)
+	return c.ctx.Value(ctxSession).(*discordgo.Session)
 }
 
 func (c *Context) Message() *discordgo.Message {
-	return c.ctx.Value(CtxMessage).(*discordgo.Message)
+	return c.ctx.Value(ctxMessage).(*discordgo.Message)
 }
 
 func (c *Context) Interaction() *discordgo.Interaction {
-	return c.ctx.Value(CtxInteraction).(*discordgo.Interaction)
+	return c.ctx.Value(ctxInteraction).(*discordgo.Interaction)
 }
 
-func (c *Context) Database() *sql.DB {
-	return c.ctx.Value(CtxDatabase).(*sql.DB)
+func (c *Context) Database() *gorm.DB {
+	return c.ctx.Value(ctxDatabase).(*gorm.DB)
 }
 
 func (c *Context) Logger() *log.Entry {
-	return c.ctx.Value(CtxLogger).(*log.Entry)
+	return c.ctx.Value(ctxLogger).(*log.Entry)
 }
 
 func (c *Context) EventValue() string {
-	return c.ctx.Value(CtxEventValue).(string)
+	return c.ctx.Value(ctxEventValue).(string)
 }
 
 func (c *Context) Reaction() (*discordgo.MessageReaction, bool) {
-	val, add := c.ctx.Value(CtxReactionValue), c.ctx.Value(CtxReactionAdd)
+	val, add := c.ctx.Value(ctxReactionValue), c.ctx.Value(ctxReactionAdd)
 	return val.(*discordgo.MessageReaction), add.(bool)
+}
+
+func withDatabase(db *gorm.DB) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxDatabase, db)
+	}
+}
+
+func withInteraction(i *discordgo.Interaction) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxInteraction, i)
+	}
+}
+
+func withSession(s *discordgo.Session) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxSession, s)
+	}
+}
+
+func withMessage(m *discordgo.Message) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxMessage, m)
+	}
+}
+
+func withLogger(l *log.Entry) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxLogger, l)
+	}
+}
+
+func withEventValue(v string) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxEventValue, v)
+	}
+}
+
+func withReaction(r *discordgo.MessageReaction, add bool) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxReactionValue, r)
+		c.ctx = context.WithValue(c.ctx, ctxReactionAdd, add)
+	}
 }

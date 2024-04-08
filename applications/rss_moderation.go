@@ -1,11 +1,16 @@
-package applicationrules
+package applications
 
 import (
 	"errors"
 	"regexp"
 
 	"github.com/aussiebroadwan/tony/framework"
+	"github.com/bwmarrin/discordgo"
 )
+
+func RegisterRSSModeration(bot *framework.Bot) framework.Route {
+	return framework.NewRoute(bot, "rss", &ModerateRSSRule{})
+}
 
 // The #rss channel is for news from RSS feeds links. We like to keep the channel
 // clean and only show RSS links with a title and description. This rule will
@@ -30,7 +35,7 @@ import (
 // send a message to the user to let them know that the message was deleted and
 // why.
 type ModerateRSSRule struct {
-	framework.ApplicationRule
+	framework.ApplicationMessage
 }
 
 var (
@@ -38,27 +43,23 @@ var (
 	ErrRSSTitleFormatError  = errors.New("the title must be in bold and end with a colon then a link")
 )
 
-func (r *ModerateRSSRule) Name() string {
-	return "rss"
+func (r ModerateRSSRule) GetType() framework.AppType {
+	return framework.AppTypeMessage
 }
 
-func (r *ModerateRSSRule) GetType() framework.ApplicationRuleType {
-	return framework.ApplicationRuleTypeModeration
-}
+func (r ModerateRSSRule) OnMessage(ctx framework.MessageContext, channel *discordgo.Channel) {
 
-// Test tests the rule against the content
-func (r *ModerateRSSRule) Test(content string) error {
-	// Check if the title is in bold and ends with a colon and a link
-	blockRegex := regexp.MustCompile(`\*\*.*\*\*: http(s)?:\/\/.*\n\n.*`)
-	if !blockRegex.MatchString(content) {
-		return ErrInvalidRSSPostFormat
+	// Check if the message is in the correct channel
+	if channel.Name != "rss" {
+		return
 	}
 
-	return nil
-}
+	// Test the message content
+	violation := r.test(ctx.Message().Content)
+	if violation == nil {
+		return
+	}
 
-// Action takes action if the rule is violated
-func (r *ModerateRSSRule) Action(ctx *framework.Context, violation error) {
 	// Delete the message
 	ctx.Session().ChannelMessageDelete(ctx.Message().ChannelID, ctx.Message().ID)
 
@@ -71,4 +72,15 @@ func (r *ModerateRSSRule) Action(ctx *framework.Context, violation error) {
 
 	// Send a direct message to the user
 	ctx.Session().ChannelMessageSend(dmChannel.ID, violation.Error())
+}
+
+// Tests the rule against the content
+func (r ModerateRSSRule) test(content string) error {
+	// Check if the title is in bold and ends with a colon and a link
+	blockRegex := regexp.MustCompile(`\*\*.*:?\*\*:? http(s)?:\/\/.*\n\n.*`)
+	if !blockRegex.MatchString(content) {
+		return ErrInvalidRSSPostFormat
+	}
+
+	return nil
 }

@@ -4,12 +4,12 @@ import (
 	"os"
 	"os/signal"
 
-	rules "github.com/aussiebroadwan/tony/applicationRules"
 	app "github.com/aussiebroadwan/tony/applications"
+	"github.com/aussiebroadwan/tony/applications/autopin"
+	"github.com/aussiebroadwan/tony/applications/remind"
 
 	"github.com/aussiebroadwan/tony/database"
 	"github.com/aussiebroadwan/tony/framework"
-	"github.com/aussiebroadwan/tony/pkg/reminders"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -47,37 +47,15 @@ func main() {
 		return
 	}
 
-	// Setup reminders
-	go reminders.Run()
-	defer reminders.Stop()
-
 	// Register routes
 	bot.Register(
-		framework.NewRoute(bot, "ping",
-			// ping
-			&app.PingCommand{},
+		app.RegisterPingApp(bot),
 
-			// ping button
-			framework.NewSubRoute(bot, "button", &app.PingButtonCommand{}),
-		),
+		remind.RegisterRemindApp(bot),
+		autopin.RegisterAutopinApp(bot),
 
-		framework.NewRoute(bot, "remind",
-			// remind
-			&app.RemindCommand{}, // [NOP]
-
-			// remind <subcommand>
-			framework.NewSubRoute(bot, "add", &app.RemindAddSubCommand{}),
-			framework.NewSubRoute(bot, "del", &app.RemindDeleteSubCommand{}),
-			framework.NewSubRoute(bot, "list", &app.RemindListSubCommand{}),
-			framework.NewSubRoute(bot, "status", &app.RemindStatusSubCommand{}),
-		),
-	)
-
-	bot.RegisterRules(
-		framework.Rule("tech-news", &rules.ModerateNewsRule{}),
-		framework.Rule("rss", &rules.ModerateRSSRule{}),
-
-		framework.Rule(".*", &rules.AutoPinRule{}),
+		app.RegisterNewsModeration(bot),
+		app.RegisterRSSModeration(bot),
 	)
 
 	// Run the bot
@@ -86,10 +64,6 @@ func main() {
 		return
 	}
 	defer bot.Close()
-
-	// Setup reminders database, requires a discord session
-	database.SetupRemindersDB(db, bot.Discord)
-	database.SetupAutoPinDB(db)
 
 	waitForInterrupt()
 }

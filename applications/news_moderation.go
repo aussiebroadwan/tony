@@ -1,11 +1,16 @@
-package applicationrules
+package applications
 
 import (
 	"errors"
 	"strings"
 
 	"github.com/aussiebroadwan/tony/framework"
+	"github.com/bwmarrin/discordgo"
 )
+
+func RegisterNewsModeration(bot *framework.Bot) framework.Route {
+	return framework.NewRoute(bot, "tech-news", &ModerateNewsRule{})
+}
 
 // The #tech-news channel is for news about technology. This rule will moderate
 // the news in that channel. More specifically it will check and enforce the
@@ -29,7 +34,7 @@ import (
 // send a message to the user to let them know that the message was deleted and
 // why.
 type ModerateNewsRule struct {
-	framework.ApplicationRule
+	framework.ApplicationMessage
 }
 
 var (
@@ -38,16 +43,39 @@ var (
 	ErrLinkFormatError       = errors.New(`the link must be a web link (http or https)`)
 )
 
-func (r *ModerateNewsRule) Name() string {
-	return "tech-news"
+func (r ModerateNewsRule) GetType() framework.AppType {
+	return framework.AppTypeMessage
 }
 
-func (r *ModerateNewsRule) GetType() framework.ApplicationRuleType {
-	return framework.ApplicationRuleTypeModeration
+func (r ModerateNewsRule) OnMessage(ctx framework.MessageContext, channel *discordgo.Channel) {
+
+	// Check if the message is in the correct channel
+	if channel.Name != "tech-news" {
+		return
+	}
+
+	// Test the message content
+	violation := r.test(ctx.Message().Content)
+	if violation == nil {
+		return
+	}
+
+	// Delete the message
+	ctx.Session().ChannelMessageDelete(ctx.Message().ChannelID, ctx.Message().ID)
+
+	// Get or create a DM channel with the user
+	dmChannel, err := ctx.Session().UserChannelCreate(ctx.Message().Author.ID)
+	if err != nil {
+		// Handle error, log it, or take appropriate action
+		return
+	}
+
+	// Send a direct message to the user
+	ctx.Session().ChannelMessageSend(dmChannel.ID, violation.Error())
 }
 
-// Test tests the rule against the content
-func (r *ModerateNewsRule) Test(content string) error {
+// Tests the rule against the content
+func (r ModerateNewsRule) test(content string) error {
 	// Split the message into lines
 	lines := strings.Split(content, "\n")
 
@@ -67,20 +95,4 @@ func (r *ModerateNewsRule) Test(content string) error {
 	}
 
 	return nil
-}
-
-// Action takes action if the rule is violated
-func (r *ModerateNewsRule) Action(ctx *framework.Context, violation error) {
-	// Delete the message
-	ctx.Session().ChannelMessageDelete(ctx.Message().ChannelID, ctx.Message().ID)
-
-	// Get or create a DM channel with the user
-	dmChannel, err := ctx.Session().UserChannelCreate(ctx.Message().Author.ID)
-	if err != nil {
-		// Handle error, log it, or take appropriate action
-		return
-	}
-
-	// Send a direct message to the user
-	ctx.Session().ChannelMessageSend(dmChannel.ID, violation.Error())
 }

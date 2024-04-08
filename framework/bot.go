@@ -2,9 +2,6 @@ package framework
 
 import (
 	"database/sql"
-	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -18,6 +15,8 @@ type Bot struct {
 
 	serverId string
 	Routes   []Route
+
+	registeredDiscordApplications map[string]*discordgo.ApplicationCommand
 
 	lg *log.Entry
 	db *sql.DB
@@ -34,82 +33,64 @@ func NewBot(token string, serverId string, db *sql.DB) (*Bot, error) {
 
 		serverId: serverId,
 		Routes:   make([]Route, 0),
-		lg:       log.WithField("src", "bot"),
-		db:       db,
+
+		registeredDiscordApplications: make(map[string]*discordgo.ApplicationCommand),
+
+		lg: log.WithField("src", "bot"),
+		db: db,
 	}, nil
 }
 
 // Register adds routes to the bot
 func (b *Bot) Register(routes ...Route) {
 	b.Routes = append(b.Routes, routes...)
+
+	for _, route := range routes {
+		// Register the route with the bot
+		for key := range route.appRoute {
+			b.lg.WithField("app", route.Name).Infof("Registering route: %s", key)
+		}
+	}
 }
 
-func keyBuilder(opt *discordgo.ApplicationCommandInteractionDataOption) string {
-	routeKey := opt.Name
+func (b *Bot) registerDiscordApplicationCommands() {
 
-	// Base case: If there are no options of type SubCommand, return the route key
-	if len(opt.Options) == 0 {
-		return routeKey
-	}
-	if opt.Options[0].Type != discordgo.ApplicationCommandOptionSubCommand {
-		return routeKey
-	}
-
-	// Recursive case: If there are options of type SubCommand, append the option name to the route key
-	return fmt.Sprintf("%s.%s", routeKey, keyBuilder(opt.Options[0]))
-}
-
-func (b *Bot) registerAllCommandsAndRouting() {
 	// Register the route with Discord
 	for _, route := range b.Routes {
-		createdApp, err := b.Discord.ApplicationCommandCreate(b.Discord.State.User.ID, b.serverId, route.declaration)
+
+		// Register Application if it is a command
+		if route.App.GetType()&AppTypeCommand != 0 {
+			app := route.App.(ApplicationCommand)
+
+			// Register the command with Discord
+			createdApp, err := b.Discord.ApplicationCommandCreate(
+				b.Discord.State.User.ID,
+				b.serverId,
+				app.GetDefinition(),
+			)
+
+			// Check for errors
+			if err != nil {
+				b.lg.Errorf("Error creating command: %s", err)
+				continue
+			}
+
+			// Add the application to the registered applications list for
+			// deregistration later
+			b.registeredDiscordApplications[route.Name] = createdApp
+
+			// Notify that the application has been registered
+			b.lg.Infof("Created Discord Application: %s", route.Name)
+		}
+	}
+}
+
+func (b *Bot) interactionCreateHandler() func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		// Fetch the route key and event value from the interaction
+		routeKey, eventValue, err := GetRouteKey(i)
 		if err != nil {
-			b.lg.Errorf("Error creating command: %s", err)
-			continue
-		}
-		route.declaration = createdApp
-
-		for k := range route.commandRoute {
-			b.lg.Infof("Registered command route: %s", k)
-		}
-	}
-
-	// Define a function to build the route key
-	appKeyBuilder := func(i *discordgo.InteractionCreate) string {
-		routeKey := i.ApplicationCommandData().Name
-
-		// Base case: If there are no options of type SubCommand, return the route key
-		if len(i.ApplicationCommandData().Options) == 0 {
-			return routeKey
-		}
-
-		// Recursive case: If there are options of type SubCommand, append the option name to the route key
-		if i.ApplicationCommandData().Options[0].Type != discordgo.ApplicationCommandOptionSubCommand {
-			return routeKey
-		}
-
-		return fmt.Sprintf("%s.%s", routeKey, keyBuilder(i.ApplicationCommandData().Options[0]))
-	}
-
-	// Handle the route execution
-	b.Discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		var routeKey string = ""
-		var eventValue string = ""
-
-		// Route Key is the name of the command dot separated by the subcommands
-		// e.g. "remind" or "remind.add". It is slightly different for the
-		// message components and modals as they should have the CustomID with
-		// the format of "command.subcommand:value" so the route key is the
-		// part before the colon.
-		switch i.Type {
-		case discordgo.InteractionApplicationCommand:
-			routeKey = appKeyBuilder(i)
-		case discordgo.InteractionMessageComponent:
-			routeKey, eventValue, _ = strings.Cut(i.MessageComponentData().CustomID, ":")
-		case discordgo.InteractionModalSubmit:
-			routeKey, eventValue, _ = strings.Cut(i.ModalSubmitData().CustomID, ":")
-		default:
-			b.lg.Errorf("Unknown interaction type: %s", i.Type.String())
+			b.lg.WithError(err).Errorf("Unknown interaction type")
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -118,6 +99,12 @@ func (b *Bot) registerAllCommandsAndRouting() {
 				},
 			})
 			return
+		}
+
+		// Get the user from the interaction
+		user := i.Interaction.Member.User
+		if user == nil {
+			user = i.Interaction.User
 		}
 
 		// Create a new context for the route
@@ -129,17 +116,24 @@ func (b *Bot) registerAllCommandsAndRouting() {
 			withLogger(b.lg.WithFields(log.Fields{
 				"route": routeKey,
 				"type":  i.Type.String(),
+				"user":  user.ID,
 			})),
 		)
 
 		// Find the route
 		for _, route := range b.Routes {
-			if er, ok := route.commandRoute[routeKey]; ok {
+			if er, ok := route.appRoute[routeKey]; ok {
 
 				// If the route is found and it is just a command, execute it
-				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType()&AppTypeCommand != 0) {
+				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType()&(AppTypeCommand) != 0) {
 					b.lg.Infof("Executing command: %s", routeKey)
-					er.OnCommand(ctx)
+					er.(ApplicationCommand).OnCommand(ctx)
+					return
+				}
+
+				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType()&(AppTypeSubCommand) != 0) {
+					b.lg.Infof("Executing subcommand: %s", routeKey)
+					er.(ApplicationSubCommand).OnCommand(ctx)
 					return
 				}
 
@@ -148,13 +142,14 @@ func (b *Bot) registerAllCommandsAndRouting() {
 					// Set the event value for the route
 					withEventValue(eventValue)(ctx)
 
-					// If the route is found and it is an event handler, execute it
 					b.lg.Infof("Executing event: %s", routeKey)
-					er.OnEvent(ctx, i.Type)
+					er.(ApplicationEvent).OnEvent(ctx, i.Type)
 					return
 				}
 			}
 		}
+
+		ctx.Logger().Errorf("Interaction not found")
 
 		// If the route is not found, respond with an error message
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -164,23 +159,11 @@ func (b *Bot) registerAllCommandsAndRouting() {
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
-	})
-}
-
-func (b *Bot) deregisterAllCommands() {
-
-	// Delete the route from Discord
-	for _, route := range b.Routes {
-		b.Discord.ApplicationCommandDelete(b.Discord.State.User.ID, b.serverId, route.declaration.ID)
-
-		for k := range route.commandRoute {
-			b.lg.Infof("Deregistered command route: %s", k)
-		}
 	}
 }
 
-func (b *Bot) RegisterRules(rules ...ActionableRule) {
-	b.Discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (b *Bot) messageCreateHandler() func(s *discordgo.Session, m *discordgo.MessageCreate) {
+	return func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == s.State.User.ID {
 			return
 		}
@@ -191,107 +174,129 @@ func (b *Bot) RegisterRules(rules ...ActionableRule) {
 			return
 		}
 
-		// Test a regex match for the channel name against the rule
-		for _, rule := range rules {
+		// Get the user from the message creation
+		user := m.Interaction.Member.User
+		if user == nil {
+			user = m.Interaction.User
+		}
 
-			// Check if the rule is a moderation rule
-			if rule.Rule.GetType() != ApplicationRuleTypeModeration {
+		// Create a new context for the route
+		ctx := NewContext(
+			withSession(s),
+			withMessage(m.Message),
+			withDatabase(b.db),
+		)
+
+		// Test a regex match for the channel name against the rule
+		for _, route := range b.Routes {
+
+			// Check if the route is a message route
+			if route.App.GetType()&AppTypeMessage == 0 {
 				continue
 			}
 
-			// Check if the channel matches the rule
-			if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
+			// Set the logger for the app
+			withLogger(b.lg.WithFields(log.Fields{
+				"route": route.Name,
+				"type":  "message",
+				"user":  user.ID,
+			}))(ctx)
 
-				// Test the rule
-				if err := rule.Rule.Test(m.Content); err != nil {
-					rule.Rule.Action(NewContext(
-						withSession(s),
-						withMessage(m.Message),
-						withDatabase(b.db),
-						withLogger(b.lg.WithFields(log.Fields{
-							"rule": rule.Rule.Name(),
-							"type": "moderation",
-						})),
-					), err)
-				}
-			}
+			// Execute the app
+			route.App.(ApplicationMessage).OnMessage(ctx, channel)
 		}
-	})
+	}
+}
 
-	b.Discord.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+func (b *Bot) reactionAddHandler() func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+	return func(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 		if r.UserID == s.State.User.ID {
 			return
 		}
 
-		// Get Channel Name from Message
-		channel, err := s.State.Channel(r.ChannelID)
-		if err != nil {
-			return
-		}
+		ctx := NewContext(
+			withSession(s),
+			withDatabase(b.db),
+			withReaction(r.MessageReaction, true),
+		)
+
+		// Get the user from the reaction
+		user := r.Member.User
 
 		// Test a regex match for the channel name against the rule
-		for _, rule := range rules {
+		for _, route := range b.Routes {
 
-			// Check if the rule is a reaction rule
-			if rule.Rule.GetType() != ApplicationRuleTypeReactions {
+			// Check if the route is a reaction route
+			if route.App.GetType()&AppTypeReaction == 0 {
 				continue
 			}
 
-			// Check if the channel matches the rule
-			if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
+			// Create a new context for the route
+			withLogger(b.lg.WithFields(log.Fields{
+				"route": route.Name,
+				"type":  "reaction_add",
+				"user":  user.ID,
+			}))(ctx)
 
-				// Test the rule
-				if err := rule.Rule.Test(r.Emoji.Name); err != nil {
-					rule.Rule.Action(NewContext(
-						withSession(s),
-						withDatabase(b.db),
-						withReaction(r.MessageReaction, true),
-						withLogger(b.lg.WithFields(log.Fields{
-							"rule": rule.Rule.Name(),
-							"type": "reaction_add",
-						})),
-					), err)
-				}
-			}
+			// Execute the app
+			route.App.(ApplicationReaction).OnReaction(ctx)
 		}
-	})
-	b.Discord.AddHandler(func(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
+	}
+}
+
+func (b *Bot) reactionRemoveHandler() func(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
+	return func(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
 		if r.UserID == s.State.User.ID {
 			return
 		}
 
-		// Get Channel Name from Message
-		channel, err := s.State.Channel(r.ChannelID)
-		if err != nil {
-			return
-		}
+		ctx := NewContext(
+			withSession(s),
+			withDatabase(b.db),
+			withReaction(r.MessageReaction, false),
+		)
 
 		// Test a regex match for the channel name against the rule
-		for _, rule := range rules {
+		for _, route := range b.Routes {
 
-			// Check if the rule is a reaction rule
-			if rule.Rule.GetType() != ApplicationRuleTypeReactions {
+			// Check if the route is a reaction route
+			if route.App.GetType()&AppTypeReaction == 0 {
 				continue
 			}
 
-			// Check if the channel matches the rule
-			if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
+			// Create a new context for the route
+			withLogger(b.lg.WithFields(log.Fields{
+				"route": route.Name,
+				"type":  "reaction_remove",
+				"user":  r.UserID,
+			}))(ctx)
 
-				// Test the rule
-				if err := rule.Rule.Test(r.Emoji.Name); err != nil {
-					rule.Rule.Action(NewContext(
-						withSession(s),
-						withDatabase(b.db),
-						withReaction(r.MessageReaction, false),
-						withLogger(b.lg.WithFields(log.Fields{
-							"rule": rule.Rule.Name(),
-							"type": "reaction_remove",
-						})),
-					), err)
-				}
-			}
+			// Execute the app
+			route.App.(ApplicationReaction).OnReaction(ctx)
 		}
-	})
+	}
+}
+
+func (b *Bot) registerAllCommandsAndRouting() {
+	b.registerDiscordApplicationCommands()
+
+	// Handle the route execution
+	b.Discord.AddHandler(b.interactionCreateHandler())
+	b.Discord.AddHandler(b.messageCreateHandler())
+	b.Discord.AddHandler(b.reactionAddHandler())
+	b.Discord.AddHandler(b.reactionRemoveHandler())
+}
+
+func (b *Bot) deregisterAllCommands() {
+	// Delete the route from Discord
+	for route, app := range b.registeredDiscordApplications {
+		b.Discord.ApplicationCommandDelete(b.Discord.State.User.ID, b.serverId, app.ID)
+
+		b.lg.Infof("Deregistered Application: %s", route)
+	}
+
+	// Clear the registered applications
+	b.registeredDiscordApplications = make(map[string]*discordgo.ApplicationCommand)
 }
 
 func (b *Bot) Run() error {
@@ -299,6 +304,36 @@ func (b *Bot) Run() error {
 		return err
 	}
 	b.registerAllCommandsAndRouting()
+
+	ctx := NewContext(
+		withSession(b.Discord),
+		withDatabase(b.db),
+	)
+
+	// Run the OnMount function for each route
+	for _, route := range b.Routes {
+
+		withLogger(b.lg.WithFields(log.Fields{
+			"route": route.Name,
+			"type":  "mount",
+		}))(ctx)
+
+		if route.App.GetType()&AppTypeMountable != 0 {
+			route.App.(ApplicationMountable).OnMount(ctx)
+		}
+
+		for _, subroute := range route.Subroutes {
+			withLogger(b.lg.WithFields(log.Fields{
+				"route": subroute.Name,
+				"type":  "mount",
+			}))(ctx)
+
+			if subroute.App.GetType()&AppTypeMountable != 0 {
+				subroute.App.(ApplicationMountable).OnMount(ctx)
+			}
+		}
+	}
+
 	return nil
 }
 

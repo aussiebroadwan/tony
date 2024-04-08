@@ -1,11 +1,10 @@
-package database
+package remind
 
 import (
 	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/aussiebroadwan/tony/pkg/reminders"
 	"github.com/bwmarrin/discordgo"
 
 	log "github.com/sirupsen/logrus"
@@ -33,7 +32,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 		log.WithField("src", "database.SetupRemindersDB").WithError(err).Fatal("Failed to load reminders from database")
 	}
 
-	var loadReminders = make(map[int64]reminders.Reminder)
+	var loadReminders = make(map[int64]Reminder)
 
 	// Iterate over each reminder
 	for rows.Next() {
@@ -56,25 +55,25 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 
 		// If the reminder has already been reminded, skip it
 		if reminded {
-			loadReminders[id] = reminders.Reminder{
+			loadReminders[id] = Reminder{
 				ID:          id,
 				CreatedBy:   createdBy,
 				TriggerTime: t,
 
 				Triggered: true,
-				Action:    func(id int64) { /* Do nothing */ },
+				Action:    func() { /* Do nothing */ },
 			}
 			continue
 		}
 
 		// Add the reminder to the reminders package
-		loadReminders[id] = reminders.Reminder{
+		loadReminders[id] = Reminder{
 			ID:          id,
 			CreatedBy:   createdBy,
 			TriggerTime: t,
 
 			Triggered: false,
-			Action: func(id int64) {
+			Action: func() {
 				// Send the reminder message
 				session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
 
@@ -88,11 +87,25 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 	}
 
 	// Load the reminders into the reminders package
-	reminders.Load(loadReminders)
+	Load(loadReminders)
 }
 
 func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *discordgo.Session, channelId string, message string) (int64, error) {
-	id := reminders.Add(triggerTime, createdBy, func(id int64) {
+	query := fmt.Sprintf(`INSERT INTO reminders (created_by, channel_id, trigger_time, message) VALUES ("%s", "%s", "%s", "%s")`, createdBy, channelId, triggerTime.Format(time.DateTime), message)
+	result, err := db.Exec(query)
+
+	if err != nil {
+		return 0, err
+	}
+
+	// Get the ID of the reminder
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	// Add the reminder to the reminders package
+	Add(id, triggerTime, createdBy, func() {
 		// Send the reminder message
 		session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
 
@@ -103,13 +116,11 @@ func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *d
 		}
 	})
 
-	query := fmt.Sprintf(`INSERT INTO reminders (id, created_by, channel_id, trigger_time, message) VALUES (%d, "%s", "%s", "%s", "%s")`, id, createdBy, channelId, triggerTime.Format(time.DateTime), message)
-	_, err := db.Exec(query)
 	return id, err
 }
 
 func DeleteReminder(db *sql.DB, id int64, user string) error {
-	err := reminders.Delete(id, user)
+	err := Delete(id, user)
 	if err != nil {
 		return err
 	}

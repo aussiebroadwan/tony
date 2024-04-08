@@ -1,4 +1,4 @@
-package database
+package autopin
 
 import (
 	"database/sql"
@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func SetupAutoPinDB(db *sql.DB) {
+func SetupAutopinDB(db *sql.DB) {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS autopin (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		channel_id TEXT NOT NULL,
@@ -20,7 +20,7 @@ func SetupAutoPinDB(db *sql.DB) {
 	}
 }
 
-func GetAutoPin(db *sql.DB, channelId string, messageId string) (int, sql.NullString, error) {
+func GetAutopin(db *sql.DB, channelId string, messageId string) (int, sql.NullString, error) {
 	var reacts int
 	var pinned sql.NullString
 	err := db.QueryRow(`SELECT reacts, pinned FROM autopin WHERE channel_id = ? AND message_id = ?`, channelId, messageId).Scan(&reacts, &pinned)
@@ -30,10 +30,10 @@ func GetAutoPin(db *sql.DB, channelId string, messageId string) (int, sql.NullSt
 	return reacts, pinned, nil
 }
 
-func IncrementAutoPin(db *sql.DB, channelId string, messageId string) error {
+func IncrementAutopin(db *sql.DB, channelId string, messageId string) error {
 
 	// Check if autopin already exists
-	reacts, _, err := GetAutoPin(db, channelId, messageId)
+	reacts, _, err := GetAutopin(db, channelId, messageId)
 	if err == nil {
 		// Update autopin
 		_, err := db.Exec(`UPDATE autopin SET reacts = ? WHERE channel_id = ? AND message_id = ?`, reacts+1, channelId, messageId)
@@ -56,9 +56,9 @@ func IncrementAutoPin(db *sql.DB, channelId string, messageId string) error {
 	return nil
 }
 
-func DecrementAutoPin(db *sql.DB, channelId string, messageId string) error {
+func DecrementAutopin(db *sql.DB, channelId string, messageId string) error {
 	// Check if autopin already exists
-	reacts, _, err := GetAutoPin(db, channelId, messageId)
+	reacts, _, err := GetAutopin(db, channelId, messageId)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func DecrementAutoPin(db *sql.DB, channelId string, messageId string) error {
 	return nil
 }
 
-func SetAutoPinPinned(db *sql.DB, channelId string, messageId string, pinned bool) error {
+func SetAutopinPinned(db *sql.DB, channelId string, messageId string, pinned bool) error {
 
 	if pinned {
 		_, err := db.Exec(`UPDATE autopin SET pinned = ? WHERE channel_id = ? AND message_id = ?`, time.Now().Format(time.DateTime), channelId, messageId)

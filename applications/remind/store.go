@@ -1,4 +1,4 @@
-package reminders
+package remind
 
 import (
 	"fmt"
@@ -12,10 +12,9 @@ type Reminder struct {
 	Triggered bool
 
 	TriggerTime time.Time
-	Action      func(id int64)
+	Action      func()
 }
 
-var reminderStoreKey int64 = 0
 var reminderStore = make(map[int64]Reminder)
 var reminderStop = false
 
@@ -23,7 +22,6 @@ var reminderStop = false
 // for testing and also for loading reminders from a database
 func Load(store map[int64]Reminder) {
 	reminderStore = store
-	reminderStoreKey = int64(len(store))
 }
 
 // Run periodically checks for due reminders and executes their actions
@@ -40,8 +38,9 @@ func Run() {
 
 		now := time.Now()
 		for _, r := range reminderStore {
+			// Check if the reminder is due
 			if r.TriggerTime.Before(now) {
-				r.Action(r.ID)                // Execute the reminder action
+				r.Action()                    // Execute the reminder action
 				_ = Delete(r.ID, r.CreatedBy) // Remove the reminder
 			}
 		}
@@ -49,7 +48,6 @@ func Run() {
 
 	// Clear the reminder store
 	reminderStore = make(map[int64]Reminder)
-	reminderStoreKey = 0
 	reminderStop = false
 }
 
@@ -58,8 +56,7 @@ func Stop() {
 }
 
 // Add creates a new reminder and returns its ID
-func Add(triggerTime time.Time, createdBy string, action func(id int64)) int64 {
-	id := reminderStoreKey
+func Add(id int64, triggerTime time.Time, createdBy string, action func()) int64 {
 	reminderStore[id] = Reminder{
 		ID:          id,
 		CreatedBy:   createdBy,
@@ -67,7 +64,6 @@ func Add(triggerTime time.Time, createdBy string, action func(id int64)) int64 {
 		Triggered:   false,
 		Action:      action,
 	}
-	reminderStoreKey++
 
 	return id
 }

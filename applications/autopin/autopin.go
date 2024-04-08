@@ -2,14 +2,8 @@ package autopin
 
 import "github.com/aussiebroadwan/tony/framework"
 
-const autopinThreshold = 1
-
-func RegisterAutopinApp(bot *framework.Bot) framework.Route {
-	return framework.NewRoute(bot, "autopin", &AutopinApp{})
-}
-
 // AutoPinRule is a rule that automatically pins messages that are reacted to
-// with a pin emoji 📌 at least 5 times.
+// with a pin emoji 📌 at least x times.
 type AutopinApp struct {
 	framework.ApplicationReaction
 }

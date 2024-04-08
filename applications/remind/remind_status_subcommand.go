@@ -41,7 +41,7 @@ func (c RemindStatusSubCommand) OnCommand(ctx framework.CommandContext) {
 	}
 
 	// Get the reminder status
-	timeLeft, err := Status(id.IntValue())
+	timeLeft, err := Status(uint(id.IntValue()))
 	if err != nil {
 		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

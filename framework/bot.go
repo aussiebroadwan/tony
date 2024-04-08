@@ -1,13 +1,10 @@
 package framework
 
 import (
-	"database/sql"
-
 	"github.com/bwmarrin/discordgo"
+	"gorm.io/gorm"
 
 	log "github.com/sirupsen/logrus"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type Bot struct {
@@ -19,10 +16,10 @@ type Bot struct {
 	registeredDiscordApplications map[string]*discordgo.ApplicationCommand
 
 	lg *log.Entry
-	db *sql.DB
+	db *gorm.DB
 }
 
-func NewBot(token string, serverId string, db *sql.DB) (*Bot, error) {
+func NewBot(token string, serverId string, db *gorm.DB) (*Bot, error) {
 	discord, err := discordgo.New("Bot " + token)
 	if err != nil {
 		return nil, err

@@ -29,7 +29,6 @@ func main() {
 
 	// Setup database
 	db := database.NewDatabase("tony.db")
-	defer db.Close()
 
 	token := os.Getenv("DISCORD_TOKEN")
 	serverId := os.Getenv("DISCORD_SERVER_ID")

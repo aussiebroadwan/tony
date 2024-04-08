@@ -1,130 +1,70 @@
 package remind
 
 import (
-	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 
 	log "github.com/sirupsen/logrus"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
-	// Create the reminders table
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS reminders (
-		id INTEGER PRIMARY KEY,
-		created_by TEXT NOT NULL,
-		channel_id TEXT NOT NULL,
-		trigger_time TEXT NOT NULL,
-		message TEXT NOT NULL,
-		reminded BOOLEAN DEFAULT FALSE
-	)`)
-	if err != nil {
-		log.WithField("src", "database.SetupRemindersDB").WithError(err).Fatal("Failed to create reminders table")
+func SetupRemindersDB(db *gorm.DB, session *discordgo.Session) {
+	// AutoMigrate will create or update the reminders table to match the Reminder struct
+	if err := db.AutoMigrate(&Reminder{}); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
 	// Load all reminders from the database
-	rows, err := db.Query(`SELECT id, created_by, channel_id, trigger_time, message, reminded FROM reminders`)
+	reminders, err := LoadReminders(db)
 	if err != nil {
-		log.WithField("src", "database.SetupRemindersDB").WithError(err).Fatal("Failed to load reminders from database")
+		log.Fatalf("Failed to load reminders: %v", err)
 	}
-
-	var loadReminders = make(map[int64]Reminder)
 
 	// Iterate over each reminder
-	for rows.Next() {
-		var id int64
-		var createdBy, channelId, triggerTime, message string
-		var reminded bool
-
-		err := rows.Scan(&id, &createdBy, &channelId, &triggerTime, &message, &reminded)
-		if err != nil {
-			log.WithField("src", "database.SetupRemindersDB").WithError(err).Error("Failed to scan reminder row")
-			continue
-		}
-
-		// Parse the trigger time
-		t, err := time.ParseInLocation(time.DateTime, triggerTime, time.Local)
-		if err != nil {
-			log.WithField("src", "database.SetupRemindersDB").WithError(err).Error("Failed to parse trigger time")
-			continue
-		}
-
+	for _, reminder := range reminders {
 		// If the reminder has already been reminded, skip it
-		if reminded {
-			loadReminders[id] = Reminder{
-				ID:          id,
-				CreatedBy:   createdBy,
-				TriggerTime: t,
-
-				Triggered: true,
-				Action:    func() { /* Do nothing */ },
-			}
+		if reminder.Reminded {
 			continue
 		}
 
-		// Add the reminder to the reminders package
-		loadReminders[id] = Reminder{
-			ID:          id,
-			CreatedBy:   createdBy,
-			TriggerTime: t,
-
-			Triggered: false,
-			Action: func() {
-				// Send the reminder message
-				session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
-
-				// Set the reminder as reminded
-				_, err := db.Exec(`UPDATE reminders SET reminded = TRUE WHERE id = ?`, id)
-				if err != nil {
-					log.WithField("src", "database.SetupRemindersDB").WithError(err).Errorf("Failed to mark reminder %d as reminded", id)
-				}
-			},
-		}
+		// Add the reminder to scheduler
+		Add(reminder.ID, reminder)
 	}
-
-	// Load the reminders into the reminders package
-	Load(loadReminders)
 }
 
-func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *discordgo.Session, channelId string, message string) (int64, error) {
-	query := fmt.Sprintf(`INSERT INTO reminders (created_by, channel_id, trigger_time, message) VALUES ("%s", "%s", "%s", "%s")`, createdBy, channelId, triggerTime.Format(time.DateTime), message)
-	result, err := db.Exec(query)
+func LoadReminders(db *gorm.DB) ([]Reminder, error) {
+	var reminders []Reminder
+	result := db.Where("reminded = ?", false).Find(&reminders)
+	return reminders, result.Error
+}
 
-	if err != nil {
-		return 0, err
+func AddReminder(db *gorm.DB, createdBy string, triggerTime time.Time, session *discordgo.Session, channelId string, message string) (uint, error) {
+	reminder := Reminder{
+		CreatedBy:   createdBy,
+		ChannelID:   channelId,
+		TriggerTime: triggerTime,
+		Message:     message,
+		Reminded:    false,
 	}
 
-	// Get the ID of the reminder
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
+	result := db.Create(&reminder)
+	if result.Error != nil {
+		return 0, result.Error
 	}
 
 	// Add the reminder to the reminders package
-	Add(id, triggerTime, createdBy, func() {
-		// Send the reminder message
-		session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
-
-		// Set the reminder as reminded
-		_, err := db.Exec(`UPDATE reminders SET reminded = TRUE WHERE id = ?`, id)
-		if err != nil {
-			log.WithField("src", "database.AddReminder").WithError(err).Errorf("Failed to mark reminder %d as reminded", id)
-		}
-	})
-
-	return id, err
+	Add(reminder.ID, reminder)
+	return reminder.ID, nil
 }
 
-func DeleteReminder(db *sql.DB, id int64, user string) error {
-	err := Delete(id, user)
-	if err != nil {
-		return err
+func DeleteReminder(db *gorm.DB, id uint, user string) error {
+	result := db.Delete(&Reminder{}, id)
+	if result.Error != nil {
+		return result.Error
 	}
 
-	_, err = db.Exec(`UPDATE reminders SET reminded = TRUE WHERE id = ?`, id)
-	return err
+	return Delete(id, user)
 }

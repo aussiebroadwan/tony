@@ -29,8 +29,8 @@ func (c RemindCommand) GetType() framework.AppType {
 func (c RemindCommand) OnMount(ctx framework.MountContext) {
 
 	// Setup reminders
-	go Run()
 	SetupRemindersDB(ctx.Database(), ctx.Session())
+	go Run(ctx.Database(), ctx.Session())
 }
 
 // Register is responsible for registering the "remind" command with

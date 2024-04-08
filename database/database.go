@@ -1,17 +1,16 @@
 package database
 
 import (
-	"database/sql"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	log "github.com/sirupsen/logrus"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
-func NewDatabase(file string) *sql.DB {
-	db, err := sql.Open("sqlite3", file)
+func NewDatabase(dsn string) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.WithField("src", "database").WithError(err).Fatal("Failed to open database")
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	return db

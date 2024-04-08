@@ -2,7 +2,7 @@ package autopin
 
 import "github.com/aussiebroadwan/tony/framework"
 
-const autoPinThreshold = 1
+const autopinThreshold = 1
 
 func RegisterAutopinApp(bot *framework.Bot) framework.Route {
 	return framework.NewRoute(bot, "autopin", &AutopinApp{})
@@ -38,18 +38,15 @@ func (a AutopinApp) OnReaction(ctx framework.ReactionContext) {
 	}
 
 	// Get the count
-	count, pinned, err := GetAutopin(db, reaction.ChannelID, reaction.MessageID)
-	if err != nil {
-		return
-	}
+	count, pinned, _ := GetAutopin(db, reaction.ChannelID, reaction.MessageID)
 
 	// Check if the message should be pinned
-	if count >= autoPinThreshold && !pinned.Valid {
+	if count >= autopinThreshold && pinned == nil {
 		// Pin the message
 		if err := ctx.Session().ChannelMessagePin(reaction.ChannelID, reaction.MessageID); err == nil {
 			SetAutopinPinned(db, reaction.ChannelID, reaction.MessageID, true)
 		}
-	} else if count < autoPinThreshold && pinned.Valid {
+	} else if count < autopinThreshold && pinned != nil {
 		// Unpin the message
 		if err := ctx.Session().ChannelMessageUnpin(reaction.ChannelID, reaction.MessageID); err != nil {
 			SetAutopinPinned(db, reaction.ChannelID, reaction.MessageID, false)

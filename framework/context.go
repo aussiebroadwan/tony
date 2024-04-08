@@ -2,12 +2,10 @@ package framework
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-
-	_ "github.com/mattn/go-sqlite3"
+	"gorm.io/gorm"
 )
 
 type ContextKey string
@@ -26,7 +24,7 @@ const (
 
 type MountContext interface {
 	Session() *discordgo.Session
-	Database() *sql.DB
+	Database() *gorm.DB
 	Logger() *log.Entry
 }
 
@@ -34,7 +32,7 @@ type CommandContext interface {
 	Session() *discordgo.Session
 	Message() *discordgo.Message
 	Interaction() *discordgo.Interaction
-	Database() *sql.DB
+	Database() *gorm.DB
 	Logger() *log.Entry
 }
 
@@ -42,7 +40,7 @@ type EventContext interface {
 	Session() *discordgo.Session
 	Message() *discordgo.Message
 	Interaction() *discordgo.Interaction
-	Database() *sql.DB
+	Database() *gorm.DB
 	Logger() *log.Entry
 	EventValue() string
 }
@@ -50,13 +48,13 @@ type EventContext interface {
 type MessageContext interface {
 	Session() *discordgo.Session
 	Message() *discordgo.Message
-	Database() *sql.DB
+	Database() *gorm.DB
 	Logger() *log.Entry
 }
 
 type ReactionContext interface {
 	Session() *discordgo.Session
-	Database() *sql.DB
+	Database() *gorm.DB
 	Logger() *log.Entry
 	Reaction() (*discordgo.MessageReaction, bool)
 }
@@ -99,8 +97,8 @@ func (c *Context) Interaction() *discordgo.Interaction {
 	return c.ctx.Value(ctxInteraction).(*discordgo.Interaction)
 }
 
-func (c *Context) Database() *sql.DB {
-	return c.ctx.Value(ctxDatabase).(*sql.DB)
+func (c *Context) Database() *gorm.DB {
+	return c.ctx.Value(ctxDatabase).(*gorm.DB)
 }
 
 func (c *Context) Logger() *log.Entry {
@@ -116,7 +114,7 @@ func (c *Context) Reaction() (*discordgo.MessageReaction, bool) {
 	return val.(*discordgo.MessageReaction), add.(bool)
 }
 
-func withDatabase(db *sql.DB) ContextOpt {
+func withDatabase(db *gorm.DB) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, ctxDatabase, db)
 	}

@@ -47,7 +47,7 @@ func (c RemindDeleteSubCommand) OnCommand(ctx framework.CommandContext) {
 	}
 
 	// Delete the reminder
-	err = DeleteReminder(db, id.IntValue(), user.Mention())
+	err = DeleteReminder(db, uint(id.IntValue()), user.Mention())
 	if err != nil {
 		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

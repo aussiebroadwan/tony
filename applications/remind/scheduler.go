@@ -38,10 +38,6 @@ func Run(db *gorm.DB, session *discordgo.Session) {
 	reminderStop = false
 }
 
-func Stop() {
-	reminderStop = true
-}
-
 // Add creates a new reminder and returns its ID
 func Add(id uint, r Reminder) uint {
 	reminderScheduler[id] = r

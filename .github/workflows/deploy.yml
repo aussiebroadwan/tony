@@ -62,6 +62,10 @@ jobs:
     - name: Stop Existing Container
       run: docker stop ${{ env.CONTAINER_NAME }} || true
 
+    # Remove the existing container
+    - name: Remove Existing Container
+      run: docker rm ${{ env.CONTAINER_NAME }} || true
+
     # Deploy the Docker image
     - name: Deploy ${{ github.ref_name}}
       run: docker run --name=${{ env.CONTAINER_NAME }} -d -e DISCORD_TOKEN=${{ secrets.DISCORD_TOKEN }} -e DISCORD_SERVER_ID=${{ secrets.DISCORD_SERVER_ID }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name}}

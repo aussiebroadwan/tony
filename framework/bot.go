@@ -68,7 +68,7 @@ func (b *Bot) registerDiscordApplicationCommands() {
 
 			// Check for errors
 			if err != nil {
-				b.lg.Errorf("Error creating command: %s", err)
+				b.lg.WithField("app", app.GetDefinition().Name).Errorf("Error creating command: %s", err)
 				continue
 			}
 
@@ -172,9 +172,9 @@ func (b *Bot) messageCreateHandler() func(s *discordgo.Session, m *discordgo.Mes
 		}
 
 		// Get the user from the message creation
-		user := m.Interaction.Member.User
+		user := m.Message.Author
 		if user == nil {
-			user = m.Interaction.User
+			user = m.Message.Member.User
 		}
 
 		// Create a new context for the route

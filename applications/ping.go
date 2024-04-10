@@ -51,7 +51,7 @@ func (pc PingCommand) OnCommand(ctx framework.CommandContext) {
 							Emoji: &discordgo.ComponentEmoji{
 								Name: "🏓",
 							},
-							CustomID: "ping.button:ping",
+							CustomID: "ping:ping",
 						},
 					},
 				},

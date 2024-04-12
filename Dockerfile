@@ -1,7 +1,5 @@
 FROM golang:1.22-alpine AS builder
 
-RUN apk add --no-cache git gcc musl-dev
-
 # Set the working directory
 WORKDIR /app
 
@@ -14,12 +12,15 @@ RUN go mod download
 # Build the application 
 RUN CGO_ENABLED=0 go build -o tony .
 
-FROM alpine
+FROM scratch
 
 # Metadata
 LABEL description="The Aussie BroadWAN Discord Bot"
 LABEL vendor="Aussie BroadWAN"
 LABEL version="0.1.0"
+
+# Copy the certificates and user/group files from the builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/tony /tony

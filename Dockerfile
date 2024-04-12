@@ -12,7 +12,7 @@ COPY . .
 RUN go mod download
 
 # Build the application 
-RUN CGO_ENABLED=1 go build -o tony .
+RUN CGO_ENABLED=0 go build -o tony .
 
 FROM alpine
 

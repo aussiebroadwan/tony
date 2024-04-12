@@ -28,7 +28,7 @@ func main() {
 	log.Infof("Tony v%s", VERSION)
 
 	// Setup database
-	db := database.NewDatabase("tony.db")
+	db := database.NewDatabase()
 
 	token := os.Getenv("DISCORD_TOKEN")
 	serverId := os.Getenv("DISCORD_SERVER_ID")

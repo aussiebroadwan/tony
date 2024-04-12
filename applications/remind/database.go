@@ -7,7 +7,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	_ "gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 

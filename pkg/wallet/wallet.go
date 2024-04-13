@@ -2,14 +2,14 @@ package wallet
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
-	lg "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-var mu sync.Mutex
+var mu sync.Mutex = sync.Mutex{}
+var lg *log.Entry = log.New().WithField("src", "wallet")
 
 var (
 	ErrInsufficientBalance = errors.New("insufficient balance")
@@ -18,11 +18,12 @@ var (
 // SetupWalletDB initializes the database with the User and Transaction models. It
 // automatically migrates the database schema to match the models, ensuring the
 // tables are created or updated as needed.
-func SetupWalletDB(db *gorm.DB) {
+func SetupWalletDB(db *gorm.DB, logger *log.Entry) {
 	mu = sync.Mutex{}
+	lg = logger
 
 	if err := db.AutoMigrate(&Transaction{}, &WalletUser{}); err != nil {
-		lg.WithField("src", "database.SetupWalletDB").WithError(err).Fatal("Failed to auto-migrate wallet tables")
+		lg.WithError(err).Fatal("Failed to auto-migrate wallet tables")
 	}
 }
 
@@ -55,6 +56,15 @@ func createTransaction(db *gorm.DB, transactionType TransactionType, amount int6
 	if result.Error != nil {
 		return result.Error
 	}
+
+	lg.WithFields(log.Fields{
+		"transaction_id": transaction.ID,
+		"type":           transaction.Type,
+		"amount":         transaction.Amount,
+		"description":    transaction.Description,
+		"application_id": transaction.ApplicationId,
+		"user_id":        transaction.UserID,
+	}).Info("Transaction created")
 
 	return nil
 }
@@ -120,6 +130,45 @@ func Debit(db *gorm.DB, userId string, amount int64, description, applicationId 
 	return createTransaction(db, DEBIT, amount, description, applicationId, user.UserId)
 }
 
+func Trasfer(db *gorm.DB, fromUserId, toUserId string, amount int64, fromDescription, toDescription, applicationId string) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	fromUser, err := getUser(db, fromUserId)
+	if err != nil {
+		return err
+	}
+
+	toUser, err := getUser(db, toUserId)
+	if err != nil {
+		return err
+	}
+
+	if fromUser.Balance < amount {
+		return ErrInsufficientBalance
+	}
+
+	fromUser.Balance -= amount
+	toUser.Balance += amount
+
+	// Perform the wallet transaction in a single database transaction
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Save(&fromUser).Error; err != nil {
+			return err
+		}
+
+		if err := db.Save(&toUser).Error; err != nil {
+			return err
+		}
+
+		if err := createTransaction(db, DEBIT, amount, fromDescription, applicationId, fromUser.UserId); err != nil {
+			return err
+		}
+
+		return createTransaction(db, CREDIT, amount, toDescription, applicationId, toUser.UserId)
+	})
+}
+
 // History retrieves the transaction history of the user with the given ID. It
 // returns the last 'limit' number of transactions. If 'limit' is negative, it
 // returns all transactions.
@@ -141,10 +190,6 @@ func History(db *gorm.DB, userId string, limit int) ([]Transaction, error) {
 	result := db.Where(Transaction{UserID: userId}).Order("created_at desc").Limit(limit).Find(&transactions)
 	if result.Error != nil {
 		return nil, result.Error
-	}
-
-	for i := range transactions {
-		fmt.Printf("Transaction: %+v\n", transactions[i])
 	}
 
 	return transactions, nil

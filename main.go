@@ -31,7 +31,7 @@ func main() {
 
 	// Setup database
 	db := database.NewDatabase()
-	wallet.SetupWalletDB(db)
+	wallet.SetupWalletDB(db, log.WithField("src", "wallet"))
 
 	token := os.Getenv("DISCORD_TOKEN")
 	serverId := os.Getenv("DISCORD_SERVER_ID")

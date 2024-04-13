@@ -60,3 +60,35 @@ func (c WalletAppCommand) GetDefinition() *discordgo.ApplicationCommand {
 func (c WalletAppCommand) OnCommand(ctx framework.CommandContext) {
 	// [NOP]
 }
+
+// sendEmbedResponse sends an embedded message as a response to a Discord interaction.
+func sendEmbedResponse(ctx framework.CommandContext, embed *discordgo.MessageEmbed) {
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Embeds: []*discordgo.MessageEmbed{embed},
+		},
+	})
+}
+
+// sendErrorResponse sends an error message as an ephemeral response to a Discord interaction.
+func sendErrorResponse(ctx framework.CommandContext, message string) {
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: message,
+		},
+	})
+}
+
+// sendSuccessResponse sends a success or informational message as an ephemeral response to a Discord interaction.
+func sendSuccessResponse(ctx framework.CommandContext, message string) {
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: message,
+		},
+	})
+}

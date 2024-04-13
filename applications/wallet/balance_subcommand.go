@@ -17,91 +17,40 @@ func (c WalletBalanceSubCommand) GetType() framework.AppType {
 }
 
 func (c WalletBalanceSubCommand) OnCommand(ctx framework.CommandContext) {
-	interaction := ctx.Interaction()
 	db := ctx.Database()
 
-	user := interaction.User
-	if user == nil {
-		user = interaction.Member.User
-	}
+	user := ctx.GetUser()
 
 	// Get the user's balance
 	balance, err := wallet.Balance(db, user.ID)
 	if err != nil {
-		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "**Error:** Failed to get balance",
-			},
-		})
+		ctx.Logger().Errorf("Failed to get balance: %v", err)
+		sendErrorResponse(ctx, "**Error:** Failed to get balance")
 		return
 	}
 
 	// Get last 5 transactions
 	transactions, err := wallet.History(db, user.ID, 5)
 	if err != nil {
-		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "**Error:** Failed to get transaction history",
-			},
-		})
+		ctx.Logger().Errorf("Failed to get transaction history: %v", err)
+		sendErrorResponse(ctx, "**Error:** Failed to get transaction history")
 		return
 	}
 
 	embed := createWalletBalanceEmbed(balance, transactions)
-	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Embeds: []*discordgo.MessageEmbed{embed},
-		},
-	})
+	sendEmbedResponse(ctx, embed)
 }
 
+// createWalletBalanceEmbed constructs a Discord message embed displaying the
+// wallet balance and a summary of recent transactions.
 func createWalletBalanceEmbed(balance int64, transactions []wallet.Transaction) *discordgo.MessageEmbed {
-	body := ""
-	for _, transaction := range transactions {
-		if transaction.Type == wallet.DEBIT {
-			transaction.Amount = -transaction.Amount
-		}
-
-		// Word wrap the description to 32 characters
-		wrappedDescription := ""
-		if len(transaction.Description) > 32 {
-			wrappedDescription = transaction.Description[:32] + "\n"
-
-			// Add the rest of the description
-			for i := 32; i < len(transaction.Description); i += 32 {
-				end := i + 32
-				if end > len(transaction.Description) {
-					end = len(transaction.Description)
-				}
-				wrappedDescription += "      | " + transaction.Description[i:end] + "\n"
-			}
-		} else {
-			wrappedDescription = transaction.Description + "\n"
-		}
-
-		// Add the transaction to the body
-		body += fmt.Sprintf("%5d | %s",
-			transaction.Amount,
-			wrappedDescription,
-		)
-
-	}
+	body := formatTransactions(transactions)
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Wallet Balance",
-		Description: "Your current wallet balance",
+		Description: fmt.Sprintf("Your current have :coin: %d in your wallet. ", balance),
 		Color:       0x4CAF50,
 		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "Balance",
-				Value:  fmt.Sprintf("%d", balance),
-				Inline: true,
-			},
 			{
 				Name:   "Last 5 Transactions",
 				Inline: false,
@@ -111,4 +60,58 @@ func createWalletBalanceEmbed(balance int64, transactions []wallet.Transaction) 
 	}
 
 	return embed
+}
+
+// formatTransactions formats a list of transactions into a human-readable
+// string. Example:
+//
+// ```
+//
+//	 -5 | Payment to uqcs-tony
+//	-30 | Payment to uqcs-tony
+//	 30 | Payment from lcox74
+//	-30 | Payment to lcox74
+//	-10 | Payment to uqcs-tony
+//
+// ```
+func formatTransactions(transactions []wallet.Transaction) string {
+	body := ""
+	for _, transaction := range transactions {
+		description := wordWrap(transaction.Description, 32, "      | ")
+		amount := formatAmount(transaction.Amount, transaction.Type)
+		body += fmt.Sprintf("%5s | %s\n", amount, description)
+	}
+	return body
+}
+
+// formatAmount formats a transaction amount into a string based on its type
+// and value.
+func formatAmount(amount int64, tType wallet.TransactionType) string {
+	sign := ""
+	if tType == wallet.DEBIT {
+		sign = "-"
+	}
+
+	if amount > 1000 {
+		return fmt.Sprintf("%s%.2fK", sign, float64(amount)/1000.0)
+	}
+	return fmt.Sprintf("%s%d", sign, amount)
+}
+
+// wordWrap breaks a long string into multiple lines at a specified width, with
+// an optional prefix for each new line.
+func wordWrap(text string, width int, prefix string) string {
+	if len(text) <= width {
+		return text
+	}
+
+	wrapped := text[:width] + "\n"
+	for i := width; i < len(text); i += width {
+		end := i + width
+		if end > len(text) {
+			end = len(text)
+		}
+		wrapped += prefix + text[i:end] + "\n"
+	}
+	return wrapped
 }

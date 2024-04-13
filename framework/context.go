@@ -32,6 +32,8 @@ type CommandContext interface {
 	Session() *discordgo.Session
 	Message() *discordgo.Message
 	Interaction() *discordgo.Interaction
+	GetOption(string) *discordgo.ApplicationCommandInteractionDataOption
+	GetUser() *discordgo.User
 	Database() *gorm.DB
 	Logger() *log.Entry
 }
@@ -95,6 +97,27 @@ func (c *Context) Message() *discordgo.Message {
 
 func (c *Context) Interaction() *discordgo.Interaction {
 	return c.ctx.Value(ctxInteraction).(*discordgo.Interaction)
+}
+
+func (c *Context) GetUser() *discordgo.User {
+	interaction := c.Interaction()
+	user := interaction.User
+	if user == nil {
+		user = interaction.Member.User
+	}
+	return user
+}
+
+func (c *Context) GetOption(name string) *discordgo.ApplicationCommandInteractionDataOption {
+	interaction := c.Interaction()
+	options := interaction.ApplicationCommandData().Options[0].Options
+
+	for _, opt := range options {
+		if opt.Name == name {
+			return opt
+		}
+	}
+	return nil
 }
 
 func (c *Context) Database() *gorm.DB {

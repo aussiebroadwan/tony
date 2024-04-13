@@ -7,6 +7,7 @@ import (
 	app "github.com/aussiebroadwan/tony/applications"
 	"github.com/aussiebroadwan/tony/applications/autopin"
 	"github.com/aussiebroadwan/tony/applications/remind"
+	"github.com/aussiebroadwan/tony/pkg/wallet"
 
 	"github.com/aussiebroadwan/tony/database"
 	"github.com/aussiebroadwan/tony/framework"
@@ -29,6 +30,7 @@ func main() {
 
 	// Setup database
 	db := database.NewDatabase()
+	wallet.SetupWalletDB(db)
 
 	token := os.Getenv("DISCORD_TOKEN")
 	serverId := os.Getenv("DISCORD_SERVER_ID")

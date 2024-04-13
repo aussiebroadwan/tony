@@ -7,6 +7,7 @@ import (
 	app "github.com/aussiebroadwan/tony/applications"
 	"github.com/aussiebroadwan/tony/applications/autopin"
 	"github.com/aussiebroadwan/tony/applications/remind"
+	walletApp "github.com/aussiebroadwan/tony/applications/wallet"
 	"github.com/aussiebroadwan/tony/pkg/wallet"
 
 	"github.com/aussiebroadwan/tony/database"
@@ -50,6 +51,8 @@ func main() {
 
 	// Register routes
 	bot.Register(
+		walletApp.RegisterWalletApp(bot),
+
 		app.RegisterPingApp(bot),
 
 		remind.RegisterRemindApp(bot),

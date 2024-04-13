@@ -16,7 +16,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to connect to database: %v", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Transaction{}); err != nil {
+	if err := db.AutoMigrate(&WalletUser{}, &Transaction{}); err != nil {
 		t.Fatalf("failed to migrate database: %v", err)
 	}
 
@@ -25,10 +25,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func TestGetUser(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Migrator().DropTable(&User{})
+	defer db.Migrator().DropTable(&WalletUser{})
 
 	// Test case: Retrieve an existing user
-	db.Create(&User{UserId: ExampleUserId1, Balance: DefaultBalance})
+	db.Create(&WalletUser{UserId: ExampleUserId1, Balance: DefaultBalance})
 
 	user, err := getUser(db, ExampleUserId1)
 	if err != nil || user.UserId != ExampleUserId1 || user.Balance != DefaultBalance {
@@ -44,9 +44,9 @@ func TestGetUser(t *testing.T) {
 
 func TestCredit(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Migrator().DropTable(&User{}, &Transaction{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
-	user := User{UserId: ExampleUserId1, Balance: DefaultBalance}
+	user := WalletUser{UserId: ExampleUserId1, Balance: DefaultBalance}
 	db.Create(&user)
 
 	// Test adding credit
@@ -67,7 +67,7 @@ func TestCredit(t *testing.T) {
 
 	// Test transaction record
 	tx := Transaction{}
-	if err := db.First(&tx, Transaction{User: User{UserId: ExampleUserId1}}).Error; err != nil {
+	if err := db.First(&tx, Transaction{UserID: ExampleUserId1}).Error; err != nil {
 		t.Errorf("Transaction not recorded: %v", err)
 	}
 
@@ -78,7 +78,7 @@ func TestCredit(t *testing.T) {
 
 func TestCreditNoUser(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Migrator().DropTable(&User{}, &Transaction{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
 	// Test case: Create a new user if not exists
 	err := Credit(db, ExampleUserId2, 100, "test credit", "app1")
@@ -99,9 +99,9 @@ func TestCreditNoUser(t *testing.T) {
 
 func TestDebit(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Migrator().DropTable(&User{}, &Transaction{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
-	user := User{UserId: ExampleUserId1, Balance: DefaultBalance}
+	user := WalletUser{UserId: ExampleUserId1, Balance: DefaultBalance}
 	db.Create(&user)
 
 	// Test adding credit
@@ -122,7 +122,7 @@ func TestDebit(t *testing.T) {
 
 	// Test transaction record
 	tx := Transaction{}
-	if err := db.First(&tx, Transaction{User: User{UserId: ExampleUserId1}}).Error; err != nil {
+	if err := db.First(&tx, Transaction{UserID: ExampleUserId1}).Error; err != nil {
 		t.Errorf("Transaction not recorded: %v", err)
 	}
 
@@ -133,7 +133,7 @@ func TestDebit(t *testing.T) {
 
 func TestDebitNoUser(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Migrator().DropTable(&User{}, &Transaction{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
 	// Test case: Create a new user if not exists
 	err := Debit(db, ExampleUserId2, 100, "test debit", "app1")
@@ -156,17 +156,17 @@ func setupTestDBWithTransactions(t *testing.T) *gorm.DB {
 	db := setupTestDB(t) // Assuming setupTestDB is the same function provided in the previous response.
 
 	// Creating test user
-	user := User{UserId: "user123", Balance: 1000}
+	user := WalletUser{UserId: "user123", Balance: 1000}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("failed to create test user: %v", err)
 	}
 
 	// Creating test transactions
 	transactions := []Transaction{
-		{Type: CREDIT, Amount: 300, UserId: user.ID},
-		{Type: CREDIT, Amount: 200, UserId: user.ID},
-		{Type: DEBIT, Amount: 150, UserId: user.ID},
-		{Type: DEBIT, Amount: 50, UserId: user.ID},
+		{Type: CREDIT, Amount: 300, UserID: user.UserId},
+		{Type: CREDIT, Amount: 200, UserID: user.UserId},
+		{Type: DEBIT, Amount: 150, UserID: user.UserId},
+		{Type: DEBIT, Amount: 50, UserID: user.UserId},
 	}
 	for _, tx := range transactions {
 		if err := db.Create(&tx).Error; err != nil {
@@ -179,7 +179,7 @@ func setupTestDBWithTransactions(t *testing.T) *gorm.DB {
 
 func TestHistory(t *testing.T) {
 	db := setupTestDBWithTransactions(t)
-	defer db.Migrator().DropTable(&User{}, &Transaction{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
 	// Test fetching limited transactions
 	transactions, err := History(db, "user123", 2)
@@ -196,7 +196,7 @@ func TestHistory(t *testing.T) {
 
 func TestCreditHistory(t *testing.T) {
 	db := setupTestDBWithTransactions(t)
-	defer db.Migrator().DropTable(&User{}, &Transaction{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
 	// Test fetching credit transactions
 	transactions, err := CreditHistory(db, "user123", -1)
@@ -207,7 +207,7 @@ func TestCreditHistory(t *testing.T) {
 
 func TestDebitHistory(t *testing.T) {
 	db := setupTestDBWithTransactions(t)
-	defer db.Migrator().DropTable(&User{}, &Transaction{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
 	// Test fetching debit transactions
 	transactions, err := DebitHistory(db, "user123", -1)

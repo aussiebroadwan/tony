@@ -2,50 +2,18 @@ package wallet
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	lg "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-const (
-	// DefaultBalance is the default balance for a new user.
-	DefaultBalance = 500
-)
+var mu sync.Mutex
 
 var (
-	mu sync.Mutex
+	ErrInsufficientBalance = errors.New("insufficient balance")
 )
-
-type User struct {
-	gorm.Model
-
-	UserId  string `gorm:"unique"` // Discord User ID
-	Balance int64
-}
-
-type TransactionType string
-
-const (
-	CREDIT TransactionType = "CREDIT"
-	DEBIT  TransactionType = "DEBIT"
-)
-
-type Transaction struct {
-	gorm.Model
-
-	// Transaction Type
-	Type   TransactionType `gorm:"type:string;not null"`
-	Amount int64
-
-	// Transaction Metadata
-	Description   string
-	ApplicationId string
-
-	// Owner of the wallet that the transaction is related to
-	UserId uint
-	User   User `gorm:"foreignKey:UserId"`
-}
 
 // SetupWalletDB initializes the database with the User and Transaction models. It
 // automatically migrates the database schema to match the models, ensuring the
@@ -53,7 +21,7 @@ type Transaction struct {
 func SetupWalletDB(db *gorm.DB) {
 	mu = sync.Mutex{}
 
-	if err := db.AutoMigrate(&User{}, &Transaction{}); err != nil {
+	if err := db.AutoMigrate(&Transaction{}, &WalletUser{}); err != nil {
 		lg.WithField("src", "database.SetupWalletDB").WithError(err).Fatal("Failed to auto-migrate wallet tables")
 	}
 }
@@ -61,9 +29,9 @@ func SetupWalletDB(db *gorm.DB) {
 // getUser retrieves the user with the given ID. If the user does not exist, it
 // creates a new user with the default balance and returns a user with the
 // default balance.
-func getUser(db *gorm.DB, userId string) (User, error) {
-	var user User
-	result := db.Where(User{UserId: userId}).Attrs(User{Balance: DefaultBalance}).FirstOrCreate(&user)
+func getUser(db *gorm.DB, userId string) (WalletUser, error) {
+	var user WalletUser
+	result := db.Where(WalletUser{UserId: userId}).Attrs(WalletUser{Balance: DefaultBalance}).FirstOrCreate(&user)
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return user, result.Error
 	}
@@ -74,13 +42,13 @@ func getUser(db *gorm.DB, userId string) (User, error) {
 // createTransaction creates a new transaction with the given type, amount,
 // description, and application ID. It logs and returns any error encountered
 // during the operation.
-func createTransaction(db *gorm.DB, transactionType TransactionType, amount int64, description, applicationId string, userId uint) error {
+func createTransaction(db *gorm.DB, transactionType TransactionType, amount int64, description, applicationId string, userId string) error {
 	transaction := Transaction{
 		Type:          transactionType,
 		Amount:        amount,
 		Description:   description,
 		ApplicationId: applicationId,
-		UserId:        userId,
+		UserID:        userId,
 	}
 
 	result := db.Create(&transaction)
@@ -124,7 +92,7 @@ func Credit(db *gorm.DB, userId string, amount int64, description, applicationId
 		return err
 	}
 
-	return createTransaction(db, CREDIT, amount, description, applicationId, user.ID)
+	return createTransaction(db, CREDIT, amount, description, applicationId, user.UserId)
 }
 
 // Debit subtracts the specified amount from the balance of the user with the
@@ -141,7 +109,7 @@ func Debit(db *gorm.DB, userId string, amount int64, description, applicationId 
 	}
 
 	if user.Balance < amount {
-		return errors.New("insufficient balance")
+		return ErrInsufficientBalance
 	}
 
 	user.Balance -= amount
@@ -149,7 +117,7 @@ func Debit(db *gorm.DB, userId string, amount int64, description, applicationId 
 		return err
 	}
 
-	return createTransaction(db, DEBIT, amount, description, applicationId, user.ID)
+	return createTransaction(db, DEBIT, amount, description, applicationId, user.UserId)
 }
 
 // History retrieves the transaction history of the user with the given ID. It
@@ -170,9 +138,13 @@ func History(db *gorm.DB, userId string, limit int) ([]Transaction, error) {
 	}
 
 	var transactions []Transaction
-	result := db.Where(Transaction{User: User{UserId: userId}}).Limit(limit).Find(&transactions)
+	result := db.Where(Transaction{UserID: userId}).Order("created_at desc").Limit(limit).Find(&transactions)
 	if result.Error != nil {
 		return nil, result.Error
+	}
+
+	for i := range transactions {
+		fmt.Printf("Transaction: %+v\n", transactions[i])
 	}
 
 	return transactions, nil
@@ -196,7 +168,7 @@ func CreditHistory(db *gorm.DB, userId string, limit int) ([]Transaction, error)
 	}
 
 	var transactions []Transaction
-	result := db.Where(Transaction{Type: CREDIT, User: User{UserId: userId}}).Limit(limit).Find(&transactions)
+	result := db.Where(Transaction{Type: CREDIT, UserID: userId}).Order("created_at desc").Limit(limit).Find(&transactions)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -222,7 +194,7 @@ func DebitHistory(db *gorm.DB, userId string, limit int) ([]Transaction, error) 
 	}
 
 	var transactions []Transaction
-	result := db.Where(Transaction{Type: DEBIT, User: User{UserId: userId}}).Limit(limit).Find(&transactions)
+	result := db.Where(Transaction{Type: DEBIT, UserID: userId}).Order("created_at desc").Limit(limit).Find(&transactions)
 	if result.Error != nil {
 		return nil, result.Error
 	}

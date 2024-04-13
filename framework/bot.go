@@ -38,6 +38,18 @@ func NewBot(token string, serverId string, db *gorm.DB) (*Bot, error) {
 	}, nil
 }
 
+func (b *Bot) OnStartup(cb func(StartupContext)) {
+	b.Discord.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		ctx := NewContext(
+			withSession(s),
+			withLogger(b.lg),
+			withDatabase(b.db),
+		)
+
+		cb(ctx)
+	})
+}
+
 // Register adds routes to the bot
 func (b *Bot) Register(routes ...Route) {
 	b.Routes = append(b.Routes, routes...)

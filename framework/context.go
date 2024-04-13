@@ -22,10 +22,14 @@ const (
 	ctxReactionAdd   ContextKey = "reaction_add"
 )
 
-type MountContext interface {
+type StartupContext interface {
 	Session() *discordgo.Session
 	Database() *gorm.DB
 	Logger() *log.Entry
+}
+
+type MountContext interface {
+	StartupContext
 }
 
 type CommandContext interface {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/aussiebroadwan/tony/applications/remind"
 	walletApp "github.com/aussiebroadwan/tony/applications/wallet"
 	"github.com/aussiebroadwan/tony/pkg/wallet"
+	"github.com/bwmarrin/discordgo"
 
 	"github.com/aussiebroadwan/tony/database"
 	"github.com/aussiebroadwan/tony/framework"
@@ -16,7 +18,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const VERSION = "0.1.1"
+var (
+	VERSION  = "Unreleased"
+	SERVERID = ""
+)
 
 func init() {
 	// Setup logging
@@ -26,15 +31,19 @@ func init() {
 }
 
 func main() {
+	if version := os.Getenv("TONY_VERSION"); version != "" {
+		VERSION = version
+	}
+
 	// Print version
-	log.Infof("Tony v%s", VERSION)
+	log.Infof("Tony %s", VERSION)
 
 	// Setup database
 	db := database.NewDatabase()
 	wallet.SetupWalletDB(db, log.WithField("src", "wallet"))
 
 	token := os.Getenv("DISCORD_TOKEN")
-	serverId := os.Getenv("DISCORD_SERVER_ID")
+	SERVERID = os.Getenv("DISCORD_SERVER_ID")
 
 	// Check if token is provided
 	if token == "" {
@@ -42,12 +51,19 @@ func main() {
 		return
 	}
 
+	if SERVERID == "" {
+		log.Fatal("No server ID provided. Please set DISCORD_SERVER_ID environment variable.")
+		return
+	}
+
 	// Create a new bot
-	bot, err := framework.NewBot(token, serverId, db)
+	bot, err := framework.NewBot(token, SERVERID, db)
 	if err != nil {
 		log.Fatalf("Error creating bot: %s", err)
 		return
 	}
+
+	bot.OnStartup(startupCb)
 
 	// Register routes
 	bot.Register(
@@ -77,4 +93,31 @@ func waitForInterrupt() {
 	signal.Notify(stop, os.Interrupt)
 	<-stop
 	log.Println("Shutting down...")
+}
+
+func startupCb(ctx framework.StartupContext) {
+	session := ctx.Session()
+
+	// Get Channel ID
+	channelName := os.Getenv("DISCORD_STARTUP_CHANNEL")
+	if channelName == "" {
+		channelName = "tony-dev"
+	}
+
+	// Get channels for this guild
+	channels, _ := session.GuildChannels(SERVERID)
+	for _, channel := range channels {
+		if channel.Name == channelName {
+
+			session.ChannelMessageSendEmbed(channel.ID, &discordgo.MessageEmbed{
+				Title:       "Tony Status",
+				Description: fmt.Sprintf("I'm now online running version `%s`. Checkout the changelog on my Github repo to see what's changed!\n\nhttps://github.com/aussiebroadwan/tony", VERSION),
+				Color:       0x4CAF50,
+			})
+
+			return
+		}
+	}
+
+	log.Warnf("Channel startup channel (#%s) not found", channelName)
 }

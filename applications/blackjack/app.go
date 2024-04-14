@@ -1,17 +1,22 @@
-package blackjack
+package blackjackApp
 
 import (
-	"fmt"
-	"strings"
+	"slices"
 
 	"github.com/aussiebroadwan/tony/framework"
+	"github.com/aussiebroadwan/tony/pkg/blackjack"
 	"github.com/bwmarrin/discordgo"
 )
 
+var (
+	HostEvent  string = "host-" + discordgo.InteractionMessageComponent.String()
+	JoinEvent  string = "join-" + discordgo.InteractionModalSubmit.String()
+	HitEvent   string = "hit-" + discordgo.InteractionMessageComponent.String()
+	StandEvent string = "stand-" + discordgo.InteractionMessageComponent.String()
+)
+
 func RegisterBlackjackApp(bot *framework.Bot) framework.Route {
-	return framework.NewRoute(bot, "blackjack",
-		&Blackjack{},
-	)
+	return framework.NewRoute(bot, "blackjack", &Blackjack{})
 }
 
 type Blackjack struct {
@@ -31,24 +36,90 @@ func (b Blackjack) GetDefinition() *discordgo.ApplicationCommand {
 }
 
 func (b Blackjack) OnCommand(ctx framework.CommandContext) {
-	// 1. Check if there is currently a game in progress
-	// 2. If there is a game in progress, send a message to the user
+	if blackjack.Running() {
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "A game is already in progress",
+			},
+		})
+		return
+	}
 
-	// 3. If there is no game in progress, start a new game
-	err := ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+	err := blackjack.Host(stateRenderer(ctx))
+	if err != nil {
+		ctx.Logger().WithError(err).Error("Failed to start a game")
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "Failed to start a game",
+			},
+		})
+		return
+	}
+
+	// You can react to button presses with no data and it doesn't error or send a message
+	err = ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Let's play some blackjack!",
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: "Booting up Blackjack..",
+		},
+	})
+	if err != nil {
+		ctx.Logger().WithError(err).Error("Failed to respond to interaction")
+	}
+
+	ctx.Logger().Info("Blackjack game started")
+}
+
+func (b Blackjack) OnEvent(ctx framework.EventContext, eventType discordgo.InteractionType) {
+	eventKey := ctx.EventValue() + "-" + eventType.String()
+
+	// Check if the event key is valid
+	if !slices.Contains([]string{HostEvent, JoinEvent, HitEvent, StandEvent}, eventKey) {
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "A game is already in progress",
+			},
+		})
+	}
+
+	// Switch on the event key
+	switch eventKey {
+	case HostEvent: // Returns a message with a joining button that builds a modal
+		OnHost(ctx)
+	case JoinEvent: // This is a Modal Submit event
+		OnJoin(ctx)
+	case HitEvent:
+		OnHit(ctx)
+	case StandEvent:
+		OnStand(ctx)
+	}
+}
+
+func OnHost(ctx framework.EventContext) {
+	// You can react to button presses with no data and it doesn't error or send a message
+	err := ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseModal,
+		Data: &discordgo.InteractionResponseData{
+			CustomID: "blackjack:join",
+			Title:    "Join Blackjack",
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Label: "Join",
-							Style: discordgo.SuccessButton,
-							Emoji: &discordgo.ComponentEmoji{
-								Name: "🃏",
-							},
-							CustomID: "blackjack:host",
+						discordgo.TextInput{
+							CustomID:    "bet",
+							Label:       "Bet Amount",
+							Style:       discordgo.TextInputShort,
+							Placeholder: "eg. 15",
+							Required:    true,
+							MaxLength:   3,
+							MinLength:   2,
 						},
 					},
 				},
@@ -60,37 +131,24 @@ func (b Blackjack) OnCommand(ctx framework.CommandContext) {
 	}
 }
 
-const (
-	HostEvent  string = "host-" + string(discordgo.InteractionMessageComponent)
-	JoinEvent  string = "join-" + string(discordgo.InteractionModalSubmit)
-	HitEvent   string = "hit-" + string(discordgo.InteractionMessageComponent)
-	StandEvent string = "stand-" + string(discordgo.InteractionMessageComponent)
-)
+func OnJoin(ctx framework.EventContext) {
 
-func (b Blackjack) OnEvent(ctx framework.EventContext, eventType discordgo.InteractionType) {
-	eventKey, eventValue, _ := strings.Cut(ctx.EventValue(), ":")
-	eventKey += "-" + string(eventType)
+	data := ctx.Interaction().ModalSubmitData()
+	bet := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 
-	switch eventKey {
-	case HostEvent:
-		OnHost(ctx)
-	case JoinEvent: // This is a Modal Submit event
-		OnJoin(ctx, eventValue)
-		return
-	case HitEvent:
-		OnHit(ctx)
-	case StandEvent:
-		OnStand(ctx)
-	default:
-		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: fmt.Sprintf("Unknown event %s", eventKey),
-			},
-		})
+	ctx.Logger().Infof("User %s has joined with a bet of %s", ctx.GetUser().Username, bet)
+
+	// You can react to button presses with no data and it doesn't error or send a message
+	err := ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: nil,
+	})
+	if err != nil {
+		ctx.Logger().WithError(err).Error("Failed to respond to interaction")
 	}
+}
 
+func OnHit(ctx framework.EventContext) {
 	// You can react to button presses with no data and it doesn't error or send a message
 	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -98,14 +156,10 @@ func (b Blackjack) OnEvent(ctx framework.EventContext, eventType discordgo.Inter
 	})
 }
 
-func OnHost(ctx framework.EventContext) {
-}
-
-func OnJoin(ctx framework.EventContext, eventValue string) {
-}
-
-func OnHit(ctx framework.EventContext) {
-}
-
 func OnStand(ctx framework.EventContext) {
+	// You can react to button presses with no data and it doesn't error or send a message
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: nil,
+	})
 }

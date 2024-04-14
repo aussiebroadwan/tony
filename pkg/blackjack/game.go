@@ -1,6 +1,7 @@
 package blackjack
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -28,7 +29,7 @@ var dealer *Dealer = &Dealer{
 		PlayerTurn: 0,
 	},
 	Stage:         IdleStage,
-	onStateChange: func(state GameState) {},
+	onStateChange: func(state GameState, messageId, channelId string) {},
 	action:        make(chan int),
 	mu:            sync.Mutex{},
 }
@@ -40,7 +41,7 @@ func initialDeal() {
 
 	// Deal first card for the dealer.
 	dealer.State.Hand = append(dealer.State.Hand, dealer.State.Shoe.Draw())
-	dealer.onStateChange(dealer.State)
+	dealer.commitState()
 	time.Sleep(CardDealInterval)
 
 	// Deal two cards to each player.
@@ -50,7 +51,7 @@ func initialDeal() {
 			user.Hand = append(user.Hand, dealer.State.Shoe.Draw())
 			checkForBlackjack(user)
 
-			dealer.onStateChange(dealer.State)
+			dealer.commitState()
 			time.Sleep(CardDealInterval)
 		}
 	}
@@ -115,22 +116,27 @@ func processPlayerTurns() {
 func dealerPlay() {
 	for dealer.State.Hand.Score() < DealerStandScore {
 		dealer.State.Hand = append(dealer.State.Hand, dealer.State.Shoe.Draw())
-		dealer.onStateChange(dealer.State)
+		dealer.commitState()
 		time.Sleep(CardDealInterval)
 	}
 }
 
 // executeGameLoop manages the flow of the game from start to finish.
 func executeGameLoop() {
+	fmt.Println("Starting game loop")
 	dealer.changeStage(JoinStage)
 	defer dealer.changeStage(IdleStage)
+	fmt.Println("Ready to join")
 
 	time.Sleep(JoinTimeoutDuration)
+	fmt.Println("Join timeout expired")
 	if len(dealer.State.Users) < 1 {
+		fmt.Println("No Users")
 		return // Not enough players to start the game.
 	}
 
 	initialDeal()
+	fmt.Println("Initial Deal")
 	dealer.changeStage(RoundStage)
 	processPlayerTurns()
 

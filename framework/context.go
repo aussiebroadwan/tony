@@ -45,6 +45,7 @@ type CommandContext interface {
 type EventContext interface {
 	Session() *discordgo.Session
 	Message() *discordgo.Message
+	GetUser() *discordgo.User
 	Interaction() *discordgo.Interaction
 	Database() *gorm.DB
 	Logger() *log.Entry

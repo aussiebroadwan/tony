@@ -115,6 +115,11 @@ func roundMessage(state blackjack.GameState) (string, []discordgo.MessageCompone
 	for _, card := range state.Hand {
 		description += fmt.Sprintf("`%s%s` ", card.Rank, card.Suit)
 	}
+	if state.Hand.Score() > blackjack.MaximumHandScore {
+		description += " - Bust"
+	} else if state.Hand.Score() == blackjack.MaximumHandScore && len(state.Hand) == 2 {
+		description += " - Blackjack"
+	}
 	description += "\n\n"
 
 	// Build the board

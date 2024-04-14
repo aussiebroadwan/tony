@@ -39,7 +39,7 @@ type Dealer struct {
 	// onStateChange is a callback function that is called when the game state
 	// changes. This is useful for sending updates to the clients so they can
 	// render the game state.
-	onStateChange func(state GameState, messageId, channelId string)
+	onStateChange func(stage GameStage, state GameState, messageId, channelId string)
 
 	mu sync.Mutex
 }
@@ -49,11 +49,11 @@ func (d *Dealer) changeStage(stage GameStage) {
 	defer d.mu.Unlock()
 
 	d.Stage = stage
-	d.onStateChange(d.State, d.messageId, d.channelId)
+	d.onStateChange(stage, d.State, d.messageId, d.channelId)
 }
 
 func (d *Dealer) commitState() {
-	d.onStateChange(d.State, d.messageId, d.channelId)
+	d.onStateChange(d.Stage, d.State, d.messageId, d.channelId)
 }
 
 func newState() GameState {

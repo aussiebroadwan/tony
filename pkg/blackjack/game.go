@@ -11,7 +11,7 @@ const (
 	DefaultDeckCount      = 6
 	DefaultPayoutRatio    = 1.0
 	BlackjackPayoutRatio  = 1.5
-	JoinTimeoutDuration   = 15 * time.Second
+	JoinTimeoutDuration   = 30 * time.Second
 	CardDealInterval      = 500 * time.Millisecond
 	PlayerTurnTimeout     = 15 * time.Second
 	MaximumHandScore      = 21
@@ -29,7 +29,7 @@ var dealer *Dealer = &Dealer{
 		PlayerTurn: 0,
 	},
 	Stage:         IdleStage,
-	onStateChange: func(state GameState, messageId, channelId string) {},
+	onStateChange: func(stage GameStage, state GameState, messageId, channelId string) {},
 	action:        make(chan int),
 	mu:            sync.Mutex{},
 }

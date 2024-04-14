@@ -10,7 +10,7 @@ func Running() bool {
 // Host initialises and starts a new game of Blackjack. It requires a  callback
 // function that is invoked on game state changes, which can be used to update
 // clients. It returns an error if a game is already in progress.
-func Host(callback func(state GameState, messageId, channelId string), messageId, channelId string) error {
+func Host(callback func(stage GameStage, state GameState, messageId, channelId string), messageId, channelId string) error {
 	dealer.mu.Lock()
 	defer dealer.mu.Unlock()
 

@@ -2,9 +2,11 @@ package blackjackApp
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/pkg/blackjack"
+	"github.com/aussiebroadwan/tony/pkg/wallet"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -138,17 +140,40 @@ func OnJoin(ctx framework.EventContext) {
 
 	ctx.Logger().Infof("User %s has joined with a bet of %s", ctx.GetUser().Username, bet)
 
-	// You can react to button presses with no data and it doesn't error or send a message
-	err := ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: nil,
-	})
+	betInt, err := strconv.Atoi(bet)
 	if err != nil {
-		ctx.Logger().WithError(err).Error("Failed to respond to interaction")
+		ctx.Logger().WithError(err).Error("Failed to convert bet to integer")
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "**Error**: Invalid bet amount, must be an integer between 10 and 999",
+			},
+		})
+		return
 	}
-}
 
-func OnHit(ctx framework.EventContext) {
+	err = blackjack.Join(ctx.GetUser().ID, int64(betInt))
+	if err != nil {
+		reason := "Too many people have joined"
+		if err == blackjack.ErrAlreadyJoined {
+			reason = "You have already joined"
+		}
+
+		ctx.Logger().WithError(err).Error("Failed to join game")
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "**Error**: " + reason,
+			},
+		})
+		return
+	}
+
+	// Charge the user's balance
+	wallet.Debit(ctx.Database(), ctx.GetUser().ID, int64(betInt), "Blackjack bet", "blackjack")
+
 	// You can react to button presses with no data and it doesn't error or send a message
 	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -156,8 +181,36 @@ func OnHit(ctx framework.EventContext) {
 	})
 }
 
-func OnStand(ctx framework.EventContext) {
+func OnHit(ctx framework.EventContext) {
+	user := ctx.GetUser()
+
+	err := blackjack.Hit(user.ID)
+	if err != nil {
+		ctx.Logger().WithField("user", user.Username).WithError(err).Error("Failed to hit")
+	} else {
+		ctx.Logger().WithField("user", user.Username).Info("User hit")
+	}
+
 	// You can react to button presses with no data and it doesn't error or send a message
+	// This will return an error, but it's safe to ignore
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: nil,
+	})
+}
+
+func OnStand(ctx framework.EventContext) {
+	user := ctx.GetUser()
+
+	err := blackjack.Stand(user.ID)
+	if err != nil {
+		ctx.Logger().WithField("user", user.Username).WithError(err).Error("Failed to stand")
+	} else {
+		ctx.Logger().WithField("user", user.Username).Info("User stands")
+	}
+
+	// You can react to button presses with no data and it doesn't error or send a message
+	// This will return an error, but it's safe to ignore
 	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: nil,

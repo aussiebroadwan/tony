@@ -41,6 +41,8 @@ func stateRenderer(ctx framework.CommandContext) (func(blackjack.GameStage, blac
 			err = RoundStateRender(session, state, channelId, messageId)
 		case blackjack.PayoutStage:
 			err = PayoutStateRender(session, state, channelId, messageId, creditUser)
+		case blackjack.ReshuffleStage:
+			err = ReshuffleRender(session, state, channelId, messageId)
 		default:
 			_, err = session.ChannelMessageEdit(channelId, messageId, "Blackjack game in preparing")
 		}
@@ -59,7 +61,7 @@ func JoinStateRender(session *discordgo.Session, state blackjack.GameState, chan
 	if len(state.Users) > 0 {
 		description += fmt.Sprintf("\n\nPlayers (%d / %d):\n", len(state.Users), blackjack.MaxPlayers)
 		for _, user := range state.Users {
-			description += fmt.Sprintf("<@%s> bets %d\n", user.Id, user.Bet)
+			description += fmt.Sprintf("<@%s> bets :coin: %d\n", user.Id, user.Bet)
 		}
 	}
 
@@ -93,7 +95,9 @@ func JoinStateRender(session *discordgo.Session, state blackjack.GameState, chan
 
 func RoundStateRender(session *discordgo.Session, state blackjack.GameState, channelId, messageId string) error {
 	description := ""
-	if state.PlayerTurn < len(state.Users) {
+	if state.PlayerTurn < 0 {
+		description = "The round is in progress, dealing cards now...\n\n"
+	} else if state.PlayerTurn < len(state.Users) {
 		playersTurn := state.Users[state.PlayerTurn].Id
 		description = fmt.Sprintf("The round is in progress and its currently <@%s>'s turn to play.\n\n", playersTurn)
 	} else {
@@ -105,6 +109,7 @@ func RoundStateRender(session *discordgo.Session, state blackjack.GameState, cha
 	for _, card := range state.Hand {
 		description += fmt.Sprintf("`%s%s` ", card.Rank, card.Suit)
 	}
+	description += "\n\n"
 
 	// Build the board
 	for _, user := range state.Users {
@@ -159,7 +164,7 @@ func PayoutStateRender(session *discordgo.Session, state blackjack.GameState, ch
 
 	description := "The round is over. Here are the results:\n\n"
 	for _, user := range state.Users {
-		description += fmt.Sprintf("<@%s> (%d): :coin: %d\n", user.Id, user.Hand.Score(), user.Bet)
+		description += fmt.Sprintf("<@%s>: :coin: %d\n", user.Id, user.Bet)
 
 		if user.Bet == 0 {
 			continue
@@ -178,6 +183,32 @@ func PayoutStateRender(session *discordgo.Session, state blackjack.GameState, ch
 			Description: description,
 			Color:       0x2ecc71,
 		},
+	}
+
+	_, err := session.ChannelMessageEditComplex(edit)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ReshuffleRender(session *discordgo.Session, state blackjack.GameState, channelId, messageId string) error {
+	description := "The deck is being reshuffled. A new round will begin shortly..."
+
+	// Render the game state
+	edit := discordgo.NewMessageEdit(channelId, messageId)
+	edit.Embeds = &[]*discordgo.MessageEmbed{
+		{
+			Title:       "Blackjack: Reshuffle",
+			Description: description,
+			Color:       0x2ecc71,
+		},
+	}
+
+	_, err := session.ChannelMessageEditComplex(edit)
+	if err != nil {
+		return err
 	}
 
 	return nil

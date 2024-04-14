@@ -1,7 +1,6 @@
 package blackjack
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -16,7 +15,10 @@ const (
 	PlayerTurnTimeout     = 15 * time.Second
 	MaximumHandScore      = 21
 	DealerStandScore      = 17
-	PayoutProcessingDelay = 5 * time.Second
+	ScoreCountingDelay    = 5 * time.Second
+	PayoutProcessingDelay = 15 * time.Second
+	ShoeCut               = 0.1 // Percentage of the shoe to be used before reshuffling.
+	ReshuffleDuration     = 10 * time.Second
 )
 
 // The dealer manages the game state and controls the flow of the game. This is
@@ -55,6 +57,7 @@ func initialDeal() {
 			time.Sleep(CardDealInterval)
 		}
 	}
+	dealer.State.PlayerTurn = 0
 }
 
 // checkForBlackjack checks if the user has a blackjack.
@@ -123,27 +126,35 @@ func dealerPlay() {
 
 // executeGameLoop manages the flow of the game from start to finish.
 func executeGameLoop() {
-	fmt.Println("Starting game loop")
 	dealer.changeStage(JoinStage)
 	defer dealer.changeStage(IdleStage)
-	fmt.Println("Ready to join")
 
 	time.Sleep(JoinTimeoutDuration)
-	fmt.Println("Join timeout expired")
 	if len(dealer.State.Users) < 1 {
-		fmt.Println("No Users")
 		return // Not enough players to start the game.
 	}
 
-	initialDeal()
-	fmt.Println("Initial Deal")
 	dealer.changeStage(RoundStage)
+	initialDeal()
 	processPlayerTurns()
+	time.Sleep(ScoreCountingDelay)
 
 	calculatePayouts()
 	dealer.changeStage(PayoutStage)
 	time.Sleep(PayoutProcessingDelay)
 
-	// Prepare for the next round or end the game if no players.
+	// Check if the shoe needs to be reshuffled.
+	if len(dealer.State.Shoe) < int(float64(len(dealer.State.Shoe))*ShoeCut) {
+		dealer.changeStage(ReshuffleStage)
+		dealer.State = newState()
+		time.Sleep(ReshuffleDuration)
+	} else {
+		// Prepare for the next round or end the game if no players. Also refresh
+		// the state (except the shoe) for the next round.
+		dealer.State.Hand = make([]Card, 0)
+		dealer.State.Users = make([]User, 0)
+		dealer.State.PlayerTurn = -1
+	}
+
 	executeGameLoop()
 }

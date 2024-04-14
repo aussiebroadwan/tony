@@ -11,6 +11,7 @@ const (
 	JoinStage
 	RoundStage
 	PayoutStage
+	ReshuffleStage
 )
 
 type User struct {
@@ -57,10 +58,13 @@ func (d *Dealer) commitState() {
 }
 
 func newState() GameState {
-	return GameState{
+	s := GameState{
 		Shoe:       NewShoe(DefaultDeckCount),
 		Hand:       make([]Card, 0),
-		PlayerTurn: 0,
+		PlayerTurn: -1,
 		Users:      make([]User, 0),
 	}
+
+	s.Shoe.Shuffle()
+	return s
 }

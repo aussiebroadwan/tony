@@ -9,54 +9,79 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func stateRenderer(ctx framework.CommandContext) (func(blackjack.GameStage, blackjack.GameState, string, string), string, string) {
+// Constants for embed colors and game messages.
+const (
+	embedColor           = 0x000000
+	preparingGameMessage = "Blackjack game in preparing"
+)
 
+// stateRenderer sets up the messaging and functionality for rendering game states in blackjack.
+func stateRenderer(ctx framework.CommandContext) (func(blackjack.GameStage, blackjack.GameState, string, string), string, string) {
 	session := ctx.Session()
 	interaction := ctx.Interaction()
 	database := ctx.Database()
 
-	// Post a new message to house the game
-	msg, err := session.ChannelMessageSend(interaction.ChannelID, "Blackjack game in preparing")
+	msg, err := session.ChannelMessageSend(interaction.ChannelID, preparingGameMessage)
 	if err != nil {
 		ctx.Logger().WithError(err).Error("Failed to create game message")
 		return nil, "", ""
 	}
 
 	creditUser := func(userId string, amount int64) {
-		err := wallet.Credit(database, userId, amount, "Blackjack returns", "blackjack")
-		if err != nil {
+		if err := wallet.Credit(database, userId, amount, "Blackjack returns", "blackjack"); err != nil {
 			ctx.Logger().WithError(err).Error("Failed to credit user")
 		}
 	}
 
+	return createGameStateRenderFunc(ctx, session, creditUser), interaction.ChannelID, msg.ID
+}
+
+// createGameStateRenderFunc creates a function to render the game state based on the current stage.
+func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.Session, creditUser func(string, int64)) func(blackjack.GameStage, blackjack.GameState, string, string) {
 	return func(stage blackjack.GameStage, state blackjack.GameState, channelId string, messageId string) {
 		ctx.Logger().WithField("stage", stage).Info("Rendering game state")
 
 		var err error
+		description := ""
+		var components []discordgo.MessageComponent = nil
 
 		switch stage {
 		case blackjack.JoinStage:
-			err = JoinStateRender(session, state, channelId, messageId)
+			description, components = joinMessage(state)
 		case blackjack.RoundStage:
-			err = RoundStateRender(session, state, channelId, messageId)
+			description, components = roundMessage(state)
 		case blackjack.PayoutStage:
-			err = PayoutStateRender(session, state, channelId, messageId, creditUser)
+			description, components = payoutMessage(state, creditUser)
 		case blackjack.ReshuffleStage:
-			err = ReshuffleRender(session, state, channelId, messageId)
+			description, components = reshuffleMessage()
+		case blackjack.FinishedStage:
+			description, components = finishedMessage()
 		default:
-			_, err = session.ChannelMessageEdit(channelId, messageId, "Blackjack game in preparing")
+			session.ChannelMessageEdit(channelId, messageId, preparingGameMessage)
+			return
 		}
+
+		err = renderState(session, channelId, messageId, "Blackjack: "+string(stage), description, components)
 
 		if err != nil {
 			ctx.Logger().WithField("stage", stage).WithError(err).Error("Failed to render game state")
 		}
-
-	}, interaction.ChannelID, msg.ID
+	}
 }
 
-func JoinStateRender(session *discordgo.Session, state blackjack.GameState, channelId, messageId string) error {
+// renderState updates the game message with new state information and interaction components.
+func renderState(session *discordgo.Session, channelId, messageId, title, description string, components []discordgo.MessageComponent) error {
+	edit := discordgo.NewMessageEdit(channelId, messageId)
+	edit.Embeds = &[]*discordgo.MessageEmbed{{Title: title, Description: description, Color: embedColor}}
+	if components != nil {
+		edit.Components = &[]discordgo.MessageComponent{discordgo.ActionsRow{Components: components}}
+	}
+	_, err := session.ChannelMessageEditComplex(edit)
+	return err
+}
 
-	// Build the game description
+// joinMessage generates the join stage message and components.
+func joinMessage(state blackjack.GameState) (string, []discordgo.MessageComponent) {
 	description := "To join place a bet. How much would you like to bet? Min is :coin: 10 and max is :coin: 999"
 	if len(state.Users) > 0 {
 		description += fmt.Sprintf("\n\nPlayers (%d / %d):\n", len(state.Users), blackjack.MaxPlayers)
@@ -64,36 +89,17 @@ func JoinStateRender(session *discordgo.Session, state blackjack.GameState, chan
 			description += fmt.Sprintf("<@%s> bets :coin: %d\n", user.Id, user.Bet)
 		}
 	}
-
-	// Render the game state
-	edit := discordgo.NewMessageEdit(channelId, messageId)
-	edit.Embeds = &[]*discordgo.MessageEmbed{
-		{
-			Title:       "Blackjack: Join",
-			Description: description,
-			Color:       0x2ecc71,
+	return description, []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Join",
+			Style:    discordgo.SuccessButton,
+			CustomID: "blackjack:host",
 		},
 	}
-	edit.Components = &[]discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Label:    "Join",
-					Style:    discordgo.SuccessButton,
-					CustomID: "blackjack:host",
-				},
-			},
-		},
-	}
-	_, err := session.ChannelMessageEditComplex(edit)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
-func RoundStateRender(session *discordgo.Session, state blackjack.GameState, channelId, messageId string) error {
+// roundMessage generates the round stage message and components.
+func roundMessage(state blackjack.GameState) (string, []discordgo.MessageComponent) {
 	description := ""
 	if state.PlayerTurn < 0 {
 		description = "The round is in progress, dealing cards now...\n\n"
@@ -127,89 +133,64 @@ func RoundStateRender(session *discordgo.Session, state blackjack.GameState, cha
 		description += "\n"
 	}
 
-	// Render the game state
-	edit := discordgo.NewMessageEdit(channelId, messageId)
-	edit.Embeds = &[]*discordgo.MessageEmbed{
-		{
-			Title:       "Blackjack: Playing",
-			Description: description,
-			Color:       0x2ecc71,
+	return description, []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Hit",
+			Style:    discordgo.SuccessButton,
+			CustomID: "blackjack:hit",
+		},
+		discordgo.Button{
+			Label:    "Stand",
+			Style:    discordgo.DangerButton,
+			CustomID: "blackjack:stand",
 		},
 	}
-	edit.Components = &[]discordgo.MessageComponent{
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Label:    "Hit",
-					Style:    discordgo.SuccessButton,
-					CustomID: "blackjack:hit",
-				},
-				discordgo.Button{
-					Label:    "Stand",
-					Style:    discordgo.DangerButton,
-					CustomID: "blackjack:stand",
-				},
-			},
-		},
-	}
-	_, err := session.ChannelMessageEditComplex(edit)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
-func PayoutStateRender(session *discordgo.Session, state blackjack.GameState, channelId, messageId string, creditUser func(userId string, amount int64)) error {
-
+// payoutMessage generates the payout stage message and components.
+func payoutMessage(state blackjack.GameState, creditUser func(string, int64)) (string, []discordgo.MessageComponent) {
 	description := "The round is over. Here are the results:\n\n"
 	for _, user := range state.Users {
 		description += fmt.Sprintf("<@%s>: :coin: %d\n", user.Id, user.Bet)
-
-		if user.Bet == 0 {
-			continue
+		if user.Bet > 0 {
+			creditUser(user.Id, user.Bet)
 		}
-
-		// Bets have been precalculated in the game state, so we can just credit the user directly
-		creditUser(user.Id, user.Bet)
 	}
-	description += "\n\nThe next round will begin shortly."
-
-	// Render the game state
-	edit := discordgo.NewMessageEdit(channelId, messageId)
-	edit.Embeds = &[]*discordgo.MessageEmbed{
-		{
-			Title:       "Blackjack: Payout",
-			Description: description,
-			Color:       0x2ecc71,
+	description += "\nThe next round will begin shortly."
+	return description, []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Hit",
+			Style:    discordgo.SuccessButton,
+			CustomID: "blackjack:hit",
+			Disabled: true,
 		},
-	}
-
-	_, err := session.ChannelMessageEditComplex(edit)
-	if err != nil {
-		return err
-	}
-
-	return nil
+		discordgo.Button{
+			Label:    "Stand",
+			Style:    discordgo.DangerButton,
+			CustomID: "blackjack:stand",
+			Disabled: true,
+		},
+	} // No components needed for payout state
 }
 
-func ReshuffleRender(session *discordgo.Session, state blackjack.GameState, channelId, messageId string) error {
-	description := "The deck is being reshuffled. A new round will begin shortly..."
-
-	// Render the game state
-	edit := discordgo.NewMessageEdit(channelId, messageId)
-	edit.Embeds = &[]*discordgo.MessageEmbed{
-		{
-			Title:       "Blackjack: Reshuffle",
-			Description: description,
-			Color:       0x2ecc71,
+func reshuffleMessage() (string, []discordgo.MessageComponent) {
+	return "The deck is being reshuffled. A new round will begin shortly...", []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Join",
+			Style:    discordgo.SuccessButton,
+			CustomID: "blackjack:host",
+			Disabled: true,
 		},
 	}
+}
 
-	_, err := session.ChannelMessageEditComplex(edit)
-	if err != nil {
-		return err
+func finishedMessage() (string, []discordgo.MessageComponent) {
+	return "The game has finished. Start a new game with `/blackjack`.", []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Join",
+			Style:    discordgo.SuccessButton,
+			CustomID: "blackjack:host",
+			Disabled: true,
+		},
 	}
-
-	return nil
 }

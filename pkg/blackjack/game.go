@@ -58,6 +58,7 @@ func initialDeal() {
 		}
 	}
 	dealer.State.PlayerTurn = 0
+	dealer.commitState()
 }
 
 // checkForBlackjack checks if the user has a blackjack.
@@ -95,6 +96,14 @@ func calculatePayouts() {
 func processPlayerTurns() {
 	dealer.State.PlayerTurn = 0
 	for dealer.State.PlayerTurn < len(dealer.State.Users) {
+
+		// Skip players with blackjack.
+		if dealer.State.Users[dealer.State.PlayerTurn].Blackjack {
+			dealer.State.PlayerTurn++
+			continue
+		}
+
+		// Wait for the player to take an action or timeout.
 		ticker := time.NewTicker(PlayerTurnTimeout)
 
 		select {
@@ -127,7 +136,7 @@ func dealerPlay() {
 // executeGameLoop manages the flow of the game from start to finish.
 func executeGameLoop() {
 	dealer.changeStage(JoinStage)
-	defer dealer.changeStage(IdleStage)
+	defer dealer.changeStage(FinishedStage)
 
 	time.Sleep(JoinTimeoutDuration)
 	if len(dealer.State.Users) < 1 {

@@ -4,14 +4,15 @@ import (
 	"sync"
 )
 
-type GameStage int
+type GameStage string
 
 const (
-	IdleStage GameStage = iota
-	JoinStage
-	RoundStage
-	PayoutStage
-	ReshuffleStage
+	IdleStage      GameStage = "Idle"
+	JoinStage      GameStage = "Join"
+	RoundStage     GameStage = "Playing"
+	PayoutStage    GameStage = "Payout"
+	ReshuffleStage GameStage = "Reshuffle"
+	FinishedStage  GameStage = "Finished"
 )
 
 type User struct {

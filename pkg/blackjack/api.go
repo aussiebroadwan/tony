@@ -14,7 +14,7 @@ func Host(callback func(stage GameStage, state GameState, messageId, channelId s
 	dealer.mu.Lock()
 	defer dealer.mu.Unlock()
 
-	if dealer.Stage != IdleStage {
+	if dealer.Stage != IdleStage && dealer.Stage != FinishedStage {
 		return ErrDealerBusy
 	}
 

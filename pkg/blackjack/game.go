@@ -82,7 +82,7 @@ func calculatePayouts() {
 
 		if user.Blackjack {
 			user.Bet += int64(float64(user.Bet) * BlackjackPayoutRatio)
-		} else if user.Hand.Score() > dealer.State.Hand.Score() {
+		} else if user.Hand.Score() > dealer.State.Hand.Score() || dealer.State.Hand.Score() > MaximumHandScore {
 			user.Bet += int64(float64(user.Bet) * DefaultPayoutRatio)
 		} else if user.Hand.Score() == dealer.State.Hand.Score() {
 			// Push: no change to bet

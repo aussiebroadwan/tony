@@ -25,13 +25,19 @@ var (
 	ErrCardRarityInvalid   = errors.New("invalid card rarity")
 	ErrApplicationRequired = errors.New("card application is required")
 	ErrApplicationTooLong  = errors.New("card application is too long")
+	ErrCardNotTradable     = errors.New("card is not tradable")
+	ErrAlreadyHaveCard     = errors.New("user already has card")
+	ErrDeleteCard          = errors.New("cant delete card from user")
+	ErrCardUnbreakable     = errors.New("card is unbreakable")
 )
 
-type UserCards struct {
+type UserCard struct {
 	gorm.Model
 
 	UserId   string
 	CardName string
+
+	Usages int
 }
 
 type Card struct {
@@ -50,7 +56,7 @@ type Card struct {
 
 	// Usage
 	MaxUsage     int
-	CurrentUsage int
+	CurrentUsage int `gorm:"-"` // Not stored in database filled in API
 
 	// Graphic
 	SVG string

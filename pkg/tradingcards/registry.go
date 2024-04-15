@@ -6,8 +6,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func Migrate(db *gorm.DB) {
-	db.AutoMigrate(&UserCards{}, &Card{})
+func Migrate(db *gorm.DB) error {
+	return db.AutoMigrate(&UserCard{}, &Card{})
 }
 
 // RegisterCard adds a new card to the registry. If the card already exists, it
@@ -39,30 +39,50 @@ func GetCard(db *gorm.DB, cardName string) (Card, error) {
 	return cards[0], nil
 }
 
+// GetUserCard retrieves the card assigned to the user. If the card does not
+// exist, it returns an error.
+func GetUserCard(db *gorm.DB, userId, cardName string) (Card, error) {
+	var userCards []UserCard
+	err := db.Where(UserCard{UserId: userId, CardName: cardName}).Limit(1).Find(&userCards).Error
+	if err != nil {
+		return Card{}, err
+	}
+
+	if len(userCards) == 0 {
+		return Card{}, ErrCardNotFound
+	}
+
+	// Get card information
+	card, err := GetCard(db, cardName)
+	if err != nil {
+		return Card{}, err
+	}
+	card.CurrentUsage = userCards[0].Usages
+
+	return card, err
+}
+
 // AssignCard assigns a card to a user. If the card does not exist, it returns
 // an error.
 func AssignCard(db *gorm.DB, userId, cardName string) error {
 
 	// Check if card exists
-	_, err := GetCard(db, cardName)
+	card, err := GetCard(db, cardName)
 	if err != nil {
 		return err
 	}
 
-	return db.Create(&UserCards{UserId: userId, CardName: cardName}).Error
-}
+	// Check if user already has the card
+	var userCards []UserCard
+	err = db.Where(UserCard{UserId: userId, CardName: cardName}).Limit(1).Find(&userCards).Error
+	if err != nil {
+		return err
+	}
+	if len(userCards) > 0 {
+		return ErrAlreadyHaveCard
+	}
 
-// GetUserCard retrieves the card assigned to the user. If the card does not
-// exist, it returns an error.
-func GetUserCard(db *gorm.DB, userId, cardName string) ([]Card, error) {
-	var cards []Card
-	err := db.Table("users_cards").
-		Select("cards.*").
-		Joins("join cards on cards.name = users_cards.card_name").
-		Where("users_cards.user_id = ? and users_cards.card_name = ?", userId, cardName).
-		Scan(&cards).Error
-
-	return cards, err
+	return db.Create(&UserCard{UserId: userId, CardName: cardName, Usages: card.MaxUsage}).Error
 }
 
 // RevokeCard revokes a card from a user. If the card does not exist, it returns
@@ -75,22 +95,145 @@ func RevokeCard(db *gorm.DB, userId, cardName string) error {
 	}
 
 	// Check if user has the card
-	_, err = GetUserCard(db, userId, cardName)
+	var userCards []UserCard
+	err = db.Where(UserCard{UserId: userId, CardName: cardName}).Limit(1).Find(&userCards).Error
 	if err != nil {
 		return err
 	}
 
-	return db.Where(UserCards{UserId: userId, CardName: cardName}).Limit(1).Delete(&UserCards{}).Error
+	if len(userCards) == 0 {
+		return ErrCardNotFound
+	}
+
+	results := db.Unscoped().Delete(&(userCards[0]))
+	if results.RowsAffected == 0 {
+		return ErrDeleteCard
+	}
+
+	return nil
+}
+
+// TransferCard transfers a card from one user to another. If the card does not
+// exist, it returns an error. If the user does not have the card, it returns an
+// error.
+func TransferCard(db *gorm.DB, fromUserId, toUserId, cardName string) error {
+	// Check if card exists
+	card, err := GetCard(db, cardName)
+	if err != nil {
+		return err
+	}
+
+	if !card.Tradable {
+		return ErrCardNotTradable
+	}
+
+	// Check if user has the card
+	_, err = GetUserCard(db, fromUserId, cardName)
+	if err != nil {
+		return err
+	}
+
+	// Check if to user already has the card
+	_, err = GetUserCard(db, toUserId, cardName)
+	if err == nil {
+		return err
+	}
+
+	// Transfer the card
+	fromCard := UserCard{UserId: fromUserId, CardName: cardName}
+	err = db.Where(&fromCard).First(&fromCard).Error
+	if err != nil {
+		return err
+	}
+
+	fromCard.UserId = toUserId
+	return db.Save(&fromCard).Error
+}
+
+// UseCard uses a card from the user. If the card does not exist, it returns an
+// error. If the user does not have the card, it returns an error. If the card
+// is unbreakable, it will not be damaged.
+func UseCard(db *gorm.DB, userId, cardName string) error {
+	// Check if card exists
+	card, err := GetCard(db, cardName)
+	if err != nil {
+		return err
+	}
+
+	if !card.Usable {
+		return ErrCardNotTradable
+	}
+
+	// Check if user has the card
+	var ownedCards []UserCard
+	err = db.Where(UserCard{UserId: userId, CardName: cardName}).Limit(1).Find(&ownedCards).Error
+	if err != nil {
+		return err
+	}
+
+	// Damage the card
+	if !card.Unbreakable {
+		ownedCards[0].Usages--
+		if ownedCards[0].Usages <= 0 {
+			return RevokeCard(db, userId, cardName)
+		}
+		return db.Save(&(ownedCards[0])).Error
+	}
+
+	return nil
+}
+
+// RepairCard repairs a card from the user. If the card does not exist, it returns
+// an error. If the user does not have the card, it returns an error. If the card
+// is unbreakable, it will not be repaired as it is already in perfect condition.
+func RepairCard(db *gorm.DB, userId, cardName string, amount int) error {
+	// Check if card exists
+	card, err := GetCard(db, cardName)
+	if err != nil {
+		return err
+	}
+
+	// Check if user has the card
+	var ownedCards []UserCard
+	err = db.Where(UserCard{UserId: userId, CardName: cardName}).Limit(1).Find(&ownedCards).Error
+	if err != nil {
+		return err
+	}
+
+	if card.Unbreakable {
+		return ErrCardUnbreakable
+	}
+
+	// Repair the card
+	ownedCards[0].Usages += amount
+	if ownedCards[0].Usages > card.MaxUsage {
+		ownedCards[0].Usages = card.MaxUsage
+	}
+
+	return db.Save(&(ownedCards[0])).Error
 }
 
 // ListUserCards retrieves all cards assigned to the user.
 func ListUserCards(db *gorm.DB, userId string) ([]Card, error) {
+	var UserCards []UserCard
+	err := db.Where(UserCard{UserId: userId}).Find(&UserCards).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(UserCards) == 0 {
+		return nil, ErrCardNotFound
+	}
+
 	var cards []Card
-	err := db.Table("users_cards").
-		Select("cards.*").
-		Joins("join cards on cards.name = users_cards.card_name").
-		Where("users_cards.user_id = ?", userId).
-		Scan(&cards).Error
+	for _, userCard := range UserCards {
+		card, err := GetCard(db, userCard.CardName)
+		if err != nil {
+			return nil, err
+		}
+		card.CurrentUsage = userCard.Usages
+		cards = append(cards, card)
+	}
 
 	return cards, err
 }

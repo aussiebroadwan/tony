@@ -25,7 +25,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func TestGetUser(t *testing.T) {
 	db := setupTestDB(t)
-	defer db.Migrator().DropTable(&WalletUser{})
+	defer db.Migrator().DropTable(&WalletUser{}, &Transaction{})
 
 	// Test case: Retrieve an existing user
 	db.Create(&WalletUser{UserId: ExampleUserId1, Balance: DefaultBalance})

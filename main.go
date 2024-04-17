@@ -10,6 +10,7 @@ import (
 	blackjackApp "github.com/aussiebroadwan/tony/applications/blackjack"
 	"github.com/aussiebroadwan/tony/applications/remind"
 	walletApp "github.com/aussiebroadwan/tony/applications/wallet"
+	"github.com/aussiebroadwan/tony/pkg/tradingcards"
 	"github.com/aussiebroadwan/tony/pkg/wallet"
 	"github.com/bwmarrin/discordgo"
 
@@ -42,6 +43,7 @@ func main() {
 	// Setup database
 	db := database.NewDatabase()
 	wallet.SetupWalletDB(db, log.WithField("src", "wallet"))
+	tradingcards.SetupTradingCardsDB(db, log.WithField("src", "tradingcards"))
 
 	token := os.Getenv("DISCORD_TOKEN")
 	SERVERID = os.Getenv("DISCORD_SERVER_ID")

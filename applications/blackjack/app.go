@@ -24,10 +24,16 @@ func RegisterBlackjackApp(bot *framework.Bot) framework.Route {
 type Blackjack struct {
 	framework.ApplicationCommand
 	framework.ApplicationEvent
+	framework.ApplicationMountable
 }
 
 func (b Blackjack) GetType() framework.AppType {
-	return framework.AppTypeCommand | framework.AppTypeEvent
+	return framework.AppTypeCommand | framework.AppTypeEvent | framework.AppTypeMountable
+}
+
+func (b Blackjack) OnMount(ctx framework.MountContext) {
+	blackjack.SetupAchievementDB(ctx.Database())
+	RegisterCards(ctx.Database())
 }
 
 func (b Blackjack) GetDefinition() *discordgo.ApplicationCommand {

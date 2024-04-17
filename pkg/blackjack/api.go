@@ -10,7 +10,7 @@ func Running() bool {
 // Host initialises and starts a new game of Blackjack. It requires a  callback
 // function that is invoked on game state changes, which can be used to update
 // clients. It returns an error if a game is already in progress.
-func Host(callback func(stage GameStage, state GameState, messageId, channelId string), messageId, channelId string) error {
+func Host(stateCb StateChangeCallback, achievementCb AchievementCallback, messageId, channelId string) error {
 	dealer.mu.Lock()
 	defer dealer.mu.Unlock()
 
@@ -18,7 +18,7 @@ func Host(callback func(stage GameStage, state GameState, messageId, channelId s
 		return ErrDealerBusy
 	}
 
-	if callback == nil || messageId == "" || channelId == "" {
+	if stateCb == nil || messageId == "" || channelId == "" {
 		return ErrInvalidAction
 	}
 
@@ -28,7 +28,8 @@ func Host(callback func(stage GameStage, state GameState, messageId, channelId s
 	dealer.messageId = messageId
 	dealer.channelId = channelId
 	dealer.Stage = JoinStage
-	dealer.onStateChange = callback
+	dealer.onStateChange = stateCb
+	dealer.onAchievement = achievementCb
 
 	go executeGameLoop() // Start the game loop in a new goroutine
 
@@ -61,10 +62,11 @@ func Join(userId string, bet int64) error {
 
 	// Add the new player to the game
 	dealer.State.Users = append(dealer.State.Users, User{
-		Id:        userId,
-		Hand:      make([]Card, 0),
-		Bet:       bet,
-		Blackjack: false,
+		Id:         userId,
+		Hand:       make([]Card, 0),
+		InitialBet: bet,
+		Bet:        bet,
+		Blackjack:  false,
 	})
 
 	dealer.commitState()

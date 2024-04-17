@@ -4,10 +4,18 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+
+	log "github.com/sirupsen/logrus"
 )
 
-func Migrate(db *gorm.DB) error {
-	return db.AutoMigrate(&UserCard{}, &Card{})
+var lg *log.Entry = log.New().WithField("src", "tradingcards")
+
+func SetupTradingCardsDB(db *gorm.DB, logger *log.Entry) {
+	lg = logger
+
+	if err := db.AutoMigrate(&UserCard{}, &Card{}); err != nil {
+		lg.WithError(err).Fatal("Failed to auto-migrate tradingcards tables")
+	}
 }
 
 // RegisterCard adds a new card to the registry. If the card already exists, it

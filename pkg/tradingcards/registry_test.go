@@ -13,9 +13,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to connect to database: %v", err)
 	}
 
-	if err := Migrate(db); err != nil {
-		t.Fatalf("failed to migrate database: %v", err)
-	}
+	// Migrate tables
+	SetupTradingCardsDB(db, lg)
 
 	return db
 }

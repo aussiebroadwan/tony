@@ -1,7 +1,9 @@
 package blackjack
 
 import (
+	"fmt"
 	"sync"
+	"time"
 )
 
 type GameStage string
@@ -15,18 +17,23 @@ const (
 	FinishedStage  GameStage = "Finished"
 )
 
+type StateChangeCallback func(stage GameStage, state GameState, messageId, channelId string)
+
 type User struct {
-	Id        string
-	Hand      Hand
-	Bet       int64
-	Blackjack bool
+	Id         string
+	Hand       Hand
+	InitialBet int64
+	Bet        int64
+	Blackjack  bool
 }
 
 type GameState struct {
-	Shoe       Shoe
-	Hand       Hand
-	PlayerTurn int
-	Users      []User
+	Id          string
+	Shoe        Shoe
+	Hand        Hand
+	PlayerTurn  int
+	Users       []User
+	ShoePlayers map[string]bool
 }
 
 type Dealer struct {
@@ -41,7 +48,12 @@ type Dealer struct {
 	// onStateChange is a callback function that is called when the game state
 	// changes. This is useful for sending updates to the clients so they can
 	// render the game state.
-	onStateChange func(stage GameStage, state GameState, messageId, channelId string)
+	onStateChange StateChangeCallback
+
+	// onAchievement is a callback function that is called when a user unlocks an
+	// achievement. This is useful for tracking user progress and notifying the
+	// user of their achievement.
+	onAchievement AchievementCallback
 
 	mu sync.Mutex
 }
@@ -60,10 +72,12 @@ func (d *Dealer) commitState() {
 
 func newState() GameState {
 	s := GameState{
-		Shoe:       NewShoe(DefaultDeckCount),
-		Hand:       make([]Card, 0),
-		PlayerTurn: -1,
-		Users:      make([]User, 0),
+		Id:          fmt.Sprintf("%d", time.Now().UTC().Unix()),
+		Shoe:        NewShoe(DefaultDeckCount),
+		Hand:        make([]Card, 0),
+		PlayerTurn:  -1,
+		Users:       make([]User, 0),
+		ShoePlayers: make(map[string]bool),
 	}
 
 	s.Shoe.Shuffle()

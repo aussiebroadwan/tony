@@ -20,6 +20,17 @@ func RegisterCards(db *gorm.DB) {
 	tradingcards.RegisterCard(db, LuckySevenCard)
 }
 
+var Cards = map[string]tradingcards.Card{
+	blackjack.FirstTimeWinner: FirstTimeWinnerCard,
+	blackjack.VeteranPlayer:   VeteranPlayerCard,
+	blackjack.BlackjackStreak: BlackjackStreakCard,
+	blackjack.HighRoller:      HighRollerCard,
+	blackjack.OhShit:          OhShitCard,
+	blackjack.CombackKing:     CombackKingCard,
+	blackjack.Perfect21:       Perfect21Card,
+	blackjack.LuckySeven:      LuckySevenCard,
+}
+
 var FirstTimeWinnerCard = tradingcards.Card{
 	Name:        blackjack.FirstTimeWinner,
 	Application: applicationId,

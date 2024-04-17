@@ -52,6 +52,19 @@ func onAchievement(ctx framework.CommandContext) blackjack.AchievementCallback {
 			return false
 		}
 
+		session := ctx.Session()
+		interaction := ctx.Interaction()
+		card := Cards[achievement]
+
+		// Notify the user of their new card
+		session.ChannelMessageSend(
+			interaction.ChannelID,
+			fmt.Sprintf("**Achievement Unlocked**: %s \n<@%s>",
+				card.Title,
+				userId,
+			),
+		)
+
 		return true
 	}
 }

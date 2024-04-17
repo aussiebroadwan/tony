@@ -5,16 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2024-04-17
 
 ### Added
 
 - Wallet System (#16)
 - Persistent Database (#14)
+- Blackjack (#18)
+- Trading Cards v1 (#20)
+- Testing Workflow (#22)
+- Blackjack Achievements (#23)
+- Notify On Startup (#17)
 
 ### Changed
 
-- Database has moved from sqlite3 to postgreSQL
+- Prod database has moved from sqlite3 to postgreSQL
+- Test database uses a CGO free sqlite3 driver for running unit tests
 
 ## [0.1.1] - 2024-04-10
 
@@ -47,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base Framework for interactiving with the Discord API
 - A basic deployment system to run the Bot from tagging
 
-[unreleased]: https://github.com/aussiebroadwan/tony/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/aussiebroadwan/tony/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/aussiebroadwan/tony/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/aussiebroadwan/tony/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/aussiebroadwan/tony/releases/tag/v0.1.0

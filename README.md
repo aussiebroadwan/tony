@@ -1,6 +1,6 @@
 # Tony - Discord Bot
 
->  2nd April 2024
+>  17th April 2024
 
 The Aussie BroadWAN has its own Discord bot for it's server. This is open for 
 development by members of the small community. This is written in [Go] for no
@@ -78,41 +78,6 @@ DB_PASSWORD=password
 > **Note:** Make sure to populate the `DISCORD_TOKEN` and `DISCORD_SERVER_ID` 
 >           fields with your specific bot details.
 
-
-## Current Bot Features
-
-There are only two main commands currently with Tony, the rest are application
-rules that run on either specific channels or on all.
-
-- `ping`: 
-    Sends the user a `Pong @<user>!` message. This is only for testing.
-
-    - `ping button`: Responses with a button which the user can press for the
-        same functionality as the `ping` command
-
-- `remind`:
-    A system to add deplayed message or reminders for users.
-
-    - `add <time> <message>`: The message to add and when to remind the user
-    - `del <id>`: Deletes a message, assuming the user owns the message
-    - `status <id>`: Get how much time is left on a reminder
-    - `list`: List the ID and times of all the user's reminders
-
-The following here are Application rules and not commands. This means they run
-on all messages limited to their registered channels, with the exception of
-`autopin` which is registered for all channels.
-
-- `tech-news`:
-    A moderation system to ensure posts being made in the `#tech-news` channel 
-    is in a specific format.
-
-- `rss`:
-    A moderation system to ensure posts being made in the `#rss` channel is in 
-    a specifc format.
-
-- `autopin`:
-    A reaction system which automatically pins messages if there are 5 or 
-    more 📌 reacts.
 
 [Go]: https://go.dev/
 [App Commands]: https://discord.com/developers/docs/interactions/application-commands

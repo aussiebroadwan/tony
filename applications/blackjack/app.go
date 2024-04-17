@@ -32,6 +32,7 @@ func (b Blackjack) GetType() framework.AppType {
 }
 
 func (b Blackjack) OnMount(ctx framework.MountContext) {
+	blackjack.SetupAchievementDB(ctx.Database())
 	RegisterCards(ctx.Database())
 }
 

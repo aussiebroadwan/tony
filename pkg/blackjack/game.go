@@ -33,7 +33,7 @@ var dealer *Dealer = &Dealer{
 	},
 	Stage:         IdleStage,
 	onStateChange: func(stage GameStage, state GameState, messageId, channelId string) {},
-	onAchievement: func(userId string, achievementName string) {},
+	onAchievement: func(userId string, achievementName string) bool { return false },
 	action:        make(chan int),
 	mu:            sync.Mutex{},
 }
@@ -79,18 +79,19 @@ func calculatePayouts() {
 		user := &dealer.State.Users[index]
 		if user.Hand.Score() > MaximumHandScore {
 			user.Bet = 0 // Player busts
-			continue
+		} else {
+			if user.Blackjack {
+				user.Bet += int64(float64(user.Bet) * BlackjackPayoutRatio)
+			} else if user.Hand.Score() > dealer.State.Hand.Score() || dealer.State.Hand.Score() > MaximumHandScore {
+				user.Bet += int64(float64(user.Bet) * DefaultPayoutRatio)
+			} else if user.Hand.Score() == dealer.State.Hand.Score() {
+				// Push: no change to bet
+			} else {
+				user.Bet = 0 // Player loses
+			}
 		}
 
-		if user.Blackjack {
-			user.Bet += int64(float64(user.Bet) * BlackjackPayoutRatio)
-		} else if user.Hand.Score() > dealer.State.Hand.Score() || dealer.State.Hand.Score() > MaximumHandScore {
-			user.Bet += int64(float64(user.Bet) * DefaultPayoutRatio)
-		} else if user.Hand.Score() == dealer.State.Hand.Score() {
-			// Push: no change to bet
-		} else {
-			user.Bet = 0 // Player loses
-		}
+		UpdateAchievementProgress(*user, dealer.State, dealer.onAchievement)
 	}
 }
 

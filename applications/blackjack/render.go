@@ -5,6 +5,7 @@ import (
 
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/pkg/blackjack"
+	"github.com/aussiebroadwan/tony/pkg/tradingcards"
 	"github.com/aussiebroadwan/tony/pkg/wallet"
 	"github.com/bwmarrin/discordgo"
 )
@@ -36,9 +37,22 @@ func stateRenderer(ctx framework.CommandContext) (blackjack.StateChangeCallback,
 	return createGameStateRenderFunc(ctx, session, creditUser), onAchievement(ctx), interaction.ChannelID, msg.ID
 }
 
+// onAchievement creates a function to handle achievement unlocks. It will
+// assign a card to the user if they unlock an achievement. If it fails to
+// assign the card it will return false, notifying the game to try again when
+// the condition is met.
 func onAchievement(ctx framework.CommandContext) blackjack.AchievementCallback {
-	return func(userId string, achievement string) {
+	return func(userId string, achievement string) bool {
 		ctx.Logger().WithField("user", userId).Info("Achievement unlocked: " + achievement)
+
+		// Assign the card to the user
+		err := tradingcards.AssignCard(ctx.Database(), userId, achievement)
+		if err != nil {
+			ctx.Logger().WithError(err).Error("Failed to assign achievement card")
+			return false
+		}
+
+		return true
 	}
 }
 

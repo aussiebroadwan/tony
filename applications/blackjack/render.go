@@ -16,7 +16,7 @@ const (
 )
 
 // stateRenderer sets up the messaging and functionality for rendering game states in blackjack.
-func stateRenderer(ctx framework.CommandContext) (func(blackjack.GameStage, blackjack.GameState, string, string), string, string) {
+func stateRenderer(ctx framework.CommandContext) (blackjack.StateChangeCallback, blackjack.AchievementCallback, string, string) {
 	session := ctx.Session()
 	interaction := ctx.Interaction()
 	database := ctx.Database()
@@ -24,7 +24,7 @@ func stateRenderer(ctx framework.CommandContext) (func(blackjack.GameStage, blac
 	msg, err := session.ChannelMessageSend(interaction.ChannelID, preparingGameMessage)
 	if err != nil {
 		ctx.Logger().WithError(err).Error("Failed to create game message")
-		return nil, "", ""
+		return nil, nil, "", ""
 	}
 
 	creditUser := func(userId string, amount int64) {
@@ -33,11 +33,17 @@ func stateRenderer(ctx framework.CommandContext) (func(blackjack.GameStage, blac
 		}
 	}
 
-	return createGameStateRenderFunc(ctx, session, creditUser), interaction.ChannelID, msg.ID
+	return createGameStateRenderFunc(ctx, session, creditUser), onAchievement(ctx), interaction.ChannelID, msg.ID
+}
+
+func onAchievement(ctx framework.CommandContext) blackjack.AchievementCallback {
+	return func(userId string, achievement string) {
+		ctx.Logger().WithField("user", userId).Info("Achievement unlocked: " + achievement)
+	}
 }
 
 // createGameStateRenderFunc creates a function to render the game state based on the current stage.
-func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.Session, creditUser func(string, int64)) func(blackjack.GameStage, blackjack.GameState, string, string) {
+func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.Session, creditUser func(string, int64)) blackjack.StateChangeCallback {
 	return func(stage blackjack.GameStage, state blackjack.GameState, channelId string, messageId string) {
 		ctx.Logger().WithField("stage", stage).Info("Rendering game state")
 

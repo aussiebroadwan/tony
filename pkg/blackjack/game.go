@@ -25,13 +25,15 @@ const (
 // the only dealer instance that should be used in the application.
 var dealer *Dealer = &Dealer{
 	State: GameState{
-		Shoe:       NewShoe(DefaultDeckCount),
-		Hand:       make([]Card, 0),
-		Users:      make([]User, 0),
-		PlayerTurn: 0,
+		Shoe:        NewShoe(DefaultDeckCount),
+		Hand:        make([]Card, 0),
+		Users:       make([]User, 0),
+		PlayerTurn:  0,
+		ShoePlayers: make(map[string]bool),
 	},
 	Stage:         IdleStage,
 	onStateChange: func(stage GameStage, state GameState, messageId, channelId string) {},
+	onAchievement: func(userId string, achievementName string) {},
 	action:        make(chan int),
 	mu:            sync.Mutex{},
 }

@@ -20,9 +20,10 @@ const (
 )
 
 type Snail struct {
-	Id   string
-	Name string
-	Type int
+	Id      string `gorm:"primaryKey"`
+	OwnerId string
+	Name    string
+	Type    int
 
 	// Stats
 	Speed        float64 // Range 1 to 10
@@ -55,8 +56,9 @@ func GenerateSnail() Snail {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 
 	s := Snail{
-		Name: generateSnailName(r),
-		Type: r.Intn(8), // 8 snail types
+		Name:    generateSnailName(r),
+		OwnerId: "",
+		Type:    r.Intn(8), // 8 snail types
 
 		Speed:        r.Float64()*9 + 1,
 		Acceleration: r.Float64()*0.9 + 0.1,
@@ -112,4 +114,10 @@ func (s Snail) SimulateRace(raceID int64) []float64 {
 		time++
 	}
 	return positions
+}
+
+// hasHistoricalPlacement checks if a snail has historical placements in the
+// top 3.
+func (snail Snail) hasHistoricalPlacement() bool {
+	return (snail.Prev1Place <= 3 && snail.Prev1Place > 0) || (snail.Prev2Place <= 3 && snail.Prev2Place > 0)
 }

@@ -139,10 +139,10 @@ func dealerPlay() {
 // executeGameLoop manages the flow of the game from start to finish.
 func executeGameLoop() {
 	dealer.changeStage(JoinStage)
-	defer dealer.changeStage(FinishedStage)
 
 	time.Sleep(JoinTimeoutDuration)
 	if len(dealer.State.Users) < 1 {
+  dealer.changeStage(FinishedStage)
 		return // Not enough players to start the game.
 	}
 

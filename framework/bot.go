@@ -135,13 +135,13 @@ func (b *Bot) interactionCreateHandler() func(s *discordgo.Session, i *discordgo
 
 				// If the route is found and it is just a command, execute it
 				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType()&(AppTypeCommand) != 0) {
-					b.lg.Infof("Executing command: %s", routeKey)
+					ctx.Logger().Infof("Executing command: %s", routeKey)
 					er.(ApplicationCommand).OnCommand(ctx)
 					return
 				}
 
 				if i.Type == discordgo.InteractionApplicationCommand && (er.GetType()&(AppTypeSubCommand) != 0) {
-					b.lg.Infof("Executing subcommand: %s", routeKey)
+					ctx.Logger().Infof("Executing subcommand: %s", routeKey)
 					er.(ApplicationSubCommand).OnCommand(ctx)
 					return
 				}
@@ -151,7 +151,7 @@ func (b *Bot) interactionCreateHandler() func(s *discordgo.Session, i *discordgo
 					// Set the event value for the route
 					withEventValue(eventValue)(ctx)
 
-					b.lg.Infof("Executing event: %s", routeKey)
+					ctx.Logger().Infof("Executing event: %s", routeKey)
 					er.(ApplicationEvent).OnEvent(ctx, i.Type)
 					return
 				}

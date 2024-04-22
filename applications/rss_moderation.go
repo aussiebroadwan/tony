@@ -62,6 +62,7 @@ func (r ModerateRSSRule) OnMessage(ctx framework.MessageContext, channel *discor
 
 	// Delete the message
 	ctx.Session().ChannelMessageDelete(ctx.Message().ChannelID, ctx.Message().ID)
+	ctx.Logger().Info("Deleted message: ", ctx.Message().ID)
 
 	// Get or create a DM channel with the user
 	dmChannel, err := ctx.Session().UserChannelCreate(ctx.Message().Author.ID)

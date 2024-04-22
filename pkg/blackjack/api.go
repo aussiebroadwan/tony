@@ -4,23 +4,25 @@ func Running() bool {
 	dealer.mu.Lock()
 	defer dealer.mu.Unlock()
 
-	return dealer.Stage != IdleStage
+	return dealer.Stage != IdleStage && dealer.Stage != FinishedStage
 }
 
 // Host initialises and starts a new game of Blackjack. It requires a  callback
 // function that is invoked on game state changes, which can be used to update
 // clients. It returns an error if a game is already in progress.
 func Host(stateCb StateChangeCallback, achievementCb AchievementCallback, messageId, channelId string) error {
-	dealer.mu.Lock()
-	defer dealer.mu.Unlock()
-
-	if dealer.Stage != IdleStage && dealer.Stage != FinishedStage {
+	if Running() {
 		return ErrDealerBusy
 	}
 
+	// Ensure the args are valid
 	if stateCb == nil || messageId == "" || channelId == "" {
 		return ErrInvalidAction
 	}
+
+	// Lock the dealer to set up the new game
+	dealer.mu.Lock()
+	defer dealer.mu.Unlock()
 
 	// Initialise a new game state
 	dealer.State = newState()

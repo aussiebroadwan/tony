@@ -1,4 +1,4 @@
-package blackjackApp
+package blackjack_app
 
 import (
 	"github.com/aussiebroadwan/tony/pkg/blackjack"

@@ -93,7 +93,7 @@ func JoinRace(userId, raceId, snailId string) error {
 	}
 
 	r.Join(snail)
-	r.stateCb(*r)
+	r.stateCb(*r, r.MessageId, r.ChannelId)
 	return nil
 }
 

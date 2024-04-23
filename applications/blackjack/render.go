@@ -1,4 +1,4 @@
-package blackjackApp
+package blackjack_app
 
 import (
 	"fmt"

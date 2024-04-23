@@ -20,7 +20,7 @@ type AchievementCallback func(userId string, achievementName string) bool
 
 // StateChangeCallback defines a function type that handles changes in race
 // state.
-type StateChangeCallback func(raceState RaceState)
+type StateChangeCallback func(raceState RaceState, messageId, channelId string)
 
 // RaceState holds all data related to the state of a race.
 type RaceState struct {
@@ -56,7 +56,7 @@ func (r *RaceState) Start(betTime time.Time) {
 		case StateInProgress:
 			if r.Step < 100 {
 				r.Step++
-				r.stateCb(*r)
+				r.stateCb(*r, r.MessageId, r.ChannelId)
 			} else {
 				r.transitionState(StateFinished)
 			}
@@ -69,7 +69,7 @@ func (r *RaceState) Start(betTime time.Time) {
 // transitionState updates the state of the race and triggers a callback.
 func (r *RaceState) transitionState(newState int) {
 	r.State = newState
-	r.stateCb(*r)
+	r.stateCb(*r, r.MessageId, r.ChannelId)
 }
 
 // Join adds a snail to the race.

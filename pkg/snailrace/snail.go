@@ -36,6 +36,8 @@ type Snail struct {
 	Prev1Place int
 	Prev2Place int
 	Prev3Place int
+
+	odds float64 `gorm:"-"`
 }
 
 func (s *Snail) generateId() {

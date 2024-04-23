@@ -58,8 +58,7 @@ docker build -t tony .
 sudo docker run                                                                \
     --env-file .env                                                            \
     --network tony-network                                                     \
-    tony                                                                       \
-                                                                   \
+    tony                                                                       
 ```
 
 Ensure your `.env` file includes the necessary credentials:

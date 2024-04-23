@@ -1,34 +1,88 @@
 package snailrace
 
-import "gorm.io/gorm"
+import (
+	"sync"
+	"time"
 
-const (
-	NUMBER_OF_PUNTERS = 256
+	"gorm.io/gorm"
 )
 
-var database *gorm.DB = nil
+const (
+	NumberOfPunters = 256
+)
 
-// SetupSnailraceDB sets up the database for the snailrace game.
+var (
+	database *gorm.DB
+	manager  *RaceManager
+)
+
+// setupPunters ensures the required number of punters are in the database.
+func setupPunters() error {
+	var count int64
+	result := database.Model(&Punter{}).Count(&count)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// Generate and save missing punters
+	for i := int(count); i < NumberOfPunters; i++ {
+		punter := GeneratePunter()
+		if err := database.Create(&punter).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// RaceManager manages the races and their states.
+type RaceManager struct {
+	races map[string]*RaceState
+	mu    sync.Mutex
+}
+
+// InitializeRaceManager sets up a new game state with race manager.
+func InitializeRaceManager() {
+	manager = &RaceManager{
+		races: make(map[string]*RaceState),
+	}
+	go manager.raceCleaner()
+}
+
+// raceCleaner periodically removes finished races from the manager.
+func (rm *RaceManager) raceCleaner() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		rm.cleanupRaces()
+	}
+}
+
+// cleanupRaces removes races that are finished.
+func (rm *RaceManager) cleanupRaces() {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	for id, state := range rm.races {
+		if state.State == StateFinished {
+			delete(rm.races, id)
+		}
+	}
+}
+
+// SetupSnailraceDB initializes the database and sets up the environment for the snail racing game.
 func SetupSnailraceDB(db *gorm.DB) error {
 	database = db
 
-	database.AutoMigrate(&Punter{}, &Snail{}, &Race{}, &SnailRaceLink{})
-
-	setupPunters()
-
-	return nil
-
-}
-
-func setupPunters() {
-	// Get all punters from the database
-	var punters []Punter
-	database.Find(&punters)
-
-	// If there are no punters, generate them
-	for len(punters) < NUMBER_OF_PUNTERS {
-		p := GeneratePunter()
-		database.Create(&p)
-		punters = append(punters, p)
+	if err := database.AutoMigrate(&Punter{}, &Snail{}, &Race{}, &SnailRaceLink{}); err != nil {
+		return err
 	}
+
+	if err := setupPunters(); err != nil {
+		return err
+	}
+
+	InitializeRaceManager()
+	return nil
 }

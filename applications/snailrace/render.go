@@ -72,9 +72,9 @@ func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.
 		case snailrace.StateInProgress:
 			description, components = progressMessage(raceState)
 		case snailrace.StateFinished:
-			description = "Under construction..."
+			description, components = finishedMessage(raceState, creditUser)
 		case snailrace.StateCancelled:
-			description = "Under construction..."
+			description, components = cancelledMessage(raceState)
 		default:
 			session.ChannelMessageEdit(channelId, messageId, preparingGameMessage)
 			return
@@ -167,15 +167,87 @@ func renderPosition(position, maxRaceLength float64) string {
 
 func progressMessage(state snailrace.RaceState) (string, []discordgo.MessageComponent) {
 
-	description := fmt.Sprintf("```\nRace ID: %s\n\n", state.Race.Id)
-	description += "                          🏁\n"
-	description += "  |-----------------------|\n"
-
+	description := fmt.Sprintf("```\nRace ID: %s\n\n%s```\n", state.Race.Id, buildTrack(state))
 	entrants := "**Entrants:**\n"
 
 	for index, snail := range state.Snails {
 		odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[index].Pool)
+		entrants += fmt.Sprintf("`[%d]: %.02f` %s\n", index, odds, snail.Name)
+	}
+	description += entrants
 
+	return description, []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Racing",
+			Disabled: true,
+			Style:    discordgo.SuccessButton,
+			CustomID: "snailrace.host:" + state.Race.Id,
+		},
+	}
+}
+
+func finishedMessage(state snailrace.RaceState, creditUser func(string, int64)) (string, []discordgo.MessageComponent) {
+
+	description := fmt.Sprintf("```\nRace ID: %s\n\n%s\n", state.Race.Id, buildTrack(state))
+	entrants := "Results:\n"
+
+	// Display the results
+	for index, snail := range state.Snails {
+		entrants += fmt.Sprintf("[%d]: %s ", index, snail.Name)
+		if place, ok := state.Place[index]; ok {
+			switch place {
+			case 1:
+				entrants += "🥇"
+			case 2:
+				entrants += "🥈"
+			case 3:
+				entrants += "🥉"
+			}
+		}
+		entrants += "\n"
+	}
+	description += entrants + "```"
+
+	// Payout the winners
+	for _, userBet := range state.Race.UserBets {
+		if place, ok := state.Place[userBet.SnailIndex]; ok {
+			if place == 1 {
+				odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[userBet.SnailIndex].Pool)
+				win := int64(float64(userBet.Amount) * odds)
+				creditUser(userBet.UserId, win)
+			}
+		}
+	}
+
+	return description, []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Concluded",
+			Disabled: true,
+			Style:    discordgo.SuccessButton,
+			CustomID: "snailrace.host:" + state.Race.Id,
+		},
+	}
+}
+
+func cancelledMessage(state snailrace.RaceState) (string, []discordgo.MessageComponent) {
+
+	description := "Race has been cancelled due to not enough players.\n\nRace ID: `%s`\n"
+
+	return description, []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Concluded",
+			Disabled: true,
+			Style:    discordgo.SuccessButton,
+			CustomID: "snailrace.host:" + state.Race.Id,
+		},
+	}
+}
+
+func buildTrack(state snailrace.RaceState) string {
+	description := "                          🏁\n"
+	description += "  |-----------------------|\n"
+
+	for index := range state.Snails {
 		position := 100.0
 		if state.Step < len(state.SnailPositions[index]) {
 			position = state.SnailPositions[index][state.Step]
@@ -191,19 +263,7 @@ func progressMessage(state snailrace.RaceState) (string, []discordgo.MessageComp
 		} else {
 			description += fmt.Sprintf("%2d| %s |\n", index, line)
 		}
-
-		entrants += fmt.Sprintf("`[%d]: %.02f` %s\n", index, odds, snail.Name)
-
 	}
-	description += "  |-----------------------|\n\n```\n"
-	description += entrants
-
-	return description, []discordgo.MessageComponent{
-		discordgo.Button{
-			Label:    "Racing",
-			Disabled: true,
-			Style:    discordgo.SuccessButton,
-			CustomID: "snailrace.host:" + state.Race.Id,
-		},
-	}
+	description += "  |-----------------------|\n\n"
+	return description
 }

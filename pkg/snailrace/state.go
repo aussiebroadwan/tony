@@ -33,6 +33,7 @@ type RaceState struct {
 	Snails         []*Snail
 	SnailPositions map[int][]float64
 	Place          map[int]int
+	RequriedSteps  int
 
 	MessageId string
 	ChannelId string
@@ -66,7 +67,7 @@ func (r *RaceState) Start(betTime time.Time) {
 				r.transitionState(StateInProgress)
 			}
 		case StateInProgress:
-			if r.Step < 100 {
+			if r.Step < r.RequriedSteps {
 				r.Step++
 				r.stateCb(*r, r.MessageId, r.ChannelId)
 			} else {
@@ -99,12 +100,17 @@ func (r *RaceState) SimulateRace() {
 		Positions  int
 	}
 	var results []Result
+	r.RequriedSteps = 0
 
 	// Build the race positions for the snails
 	for i, snail := range r.Race.Snails {
 		positions := snail.snail.SimulateRace(r.Race.Id)
 		r.SnailPositions[i] = positions
 		results = append(results, Result{SnailIndex: i, Positions: len(positions)})
+
+		if len(positions) > r.RequriedSteps {
+			r.RequriedSteps = len(positions)
+		}
 	}
 
 	// Sort results by the number of positions, ascending (fewer positions means faster)

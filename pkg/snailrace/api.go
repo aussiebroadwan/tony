@@ -73,7 +73,7 @@ func GetSnails(userId string) ([]Snail, error) {
 // an error.
 func JoinRace(userId, raceId, snailId string) error {
 	snail := Snail{}
-	if err := database.First(&snail, snailId).Error; err != nil {
+	if err := database.First(&snail, Snail{Id: snailId}).Error; err != nil {
 		return ErrSnailNotFound
 	}
 

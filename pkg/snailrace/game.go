@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -30,6 +32,7 @@ func setupPunters() error {
 		if err := database.Create(&punter).Error; err != nil {
 			return err
 		}
+		log.WithField("src", "snailrace").WithField("punter", punter.ID).Info("Generated punter")
 	}
 
 	return nil

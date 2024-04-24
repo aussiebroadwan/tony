@@ -1,7 +1,7 @@
 package snailrace_app
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/pkg/snailrace"
@@ -44,20 +44,30 @@ func (c SnailraceHostSubCommand) OnCommand(ctx framework.CommandContext) {
 func (c SnailraceHostSubCommand) OnEvent(ctx framework.EventContext, eventType discordgo.InteractionType) {
 	eventKey := ctx.EventValue()
 
-	if eventKey == "join_request" && eventType == discordgo.InteractionMessageComponent {
-		// Handle join request
-		handleJoinRequest(ctx)
-		return
+	if eventType != discordgo.InteractionMessageComponent {
+		ctx.Logger().Error("Invalid event type")
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "**Error**: Invalid event type",
+			},
+		})
 	}
 
-	if eventKey == "join" && eventType == discordgo.InteractionModalSubmit {
-		// Handle join
-		handleJoin(ctx)
-		return
+	values := strings.Split(eventKey, ":")
+
+	switch values[0] {
+	case "join_request":
+		handleJoinRequest(ctx, values[1])
+	case "join_select":
+		handleJoin(ctx, values[1])
+	default:
+		ctx.Logger().Error("Invalid event key: " + values[0])
 	}
 }
 
-func handleJoinRequest(ctx framework.EventContext) {
+func handleJoinRequest(ctx framework.EventContext, raceId string) {
 	user := ctx.GetUser()
 
 	snails, err := snailrace.GetSnails(user.ID)
@@ -67,32 +77,30 @@ func handleJoinRequest(ctx framework.EventContext) {
 	}
 
 	// Convert user's snails to modal options
-	modalOptions := make([]discordgo.SelectMenuOption, len(snails))
+	menuOptions := make([]discordgo.SelectMenuOption, len(snails))
 	for i, snail := range snails {
-		modalOptions[i] = discordgo.SelectMenuOption{
-			Label:   snail.Name,
+		menuOptions[i] = discordgo.SelectMenuOption{
+			Label:   snail.Name, // TODO: Add usages left
 			Value:   snail.Id,
 			Default: false,
 		}
 	}
 
 	// Handle join request
-	minValues := 1
 	err = ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:    discordgo.MessageFlagsEphemeral,
-			CustomID: "snailrace.host:join",
+			CustomID: "snailrace.host:join:" + raceId,
 			Title:    "Join Snailrace",
+			Content:  "Select a snail from your deck to join in the race",
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.SelectMenu{
-							CustomID:    "snailrace.host:join_select",
+							CustomID:    "snailrace.host:join_select:" + raceId,
 							Placeholder: "Select a snail",
-							Options:     modalOptions,
-							MinValues:   &minValues,
-							MaxValues:   1,
+							Options:     menuOptions,
 						},
 					},
 				},
@@ -104,10 +112,26 @@ func handleJoinRequest(ctx framework.EventContext) {
 	}
 }
 
-func handleJoin(ctx framework.EventContext) {
-	data := ctx.Interaction().ModalSubmitData()
-	menu := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.SelectMenu)
-	fmt.Printf("%+v\n", menu)
+func handleJoin(ctx framework.EventContext, raceId string) {
+	data := ctx.Interaction().MessageComponentData()
+	snail := data.Values[0]
 
-	// ctx.Logger().Infof("User %s has joined using snail %s", ctx.GetUser().Username, snail)
+	err := snailrace.JoinRace(ctx.GetUser().ID, raceId, snail)
+	if err != nil {
+		ctx.Logger().WithError(err).Errorf("User %s has failed to join race %s using snail %s", ctx.GetUser().Username, raceId, snail)
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "**Error**: " + err.Error(),
+			},
+		})
+		return
+	}
+
+	// You can react to button presses with no data and it doesn't error or send a message
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: nil,
+	})
 }

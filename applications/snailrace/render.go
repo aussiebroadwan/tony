@@ -62,18 +62,21 @@ func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.
 		description := ""
 		var components []discordgo.MessageComponent = nil
 
-		description, components = joinMessage(raceState)
-
-		// switch raceState.State {
-		// case snailrace.StateJoining:
-		// 	description, components = joinMessage(raceState)
-		// case snailrace.StateBetting:
-		// case snailrace.StateInProgress:
-		// case snailrace.StateFinished:
-		// default:
-		// 	session.ChannelMessageEdit(channelId, messageId, preparingGameMessage)
-		// 	return
-		// }
+		switch raceState.State {
+		case snailrace.StateJoining:
+			description, components = joinMessage(raceState)
+		case snailrace.StateBetting:
+			description = "Under construction..."
+		case snailrace.StateInProgress:
+			description = "Under construction..."
+		case snailrace.StateFinished:
+			description = "Under construction..."
+		case snailrace.StateCancelled:
+			description = "Under construction..."
+		default:
+			session.ChannelMessageEdit(channelId, messageId, preparingGameMessage)
+			return
+		}
 
 		err = renderState(session, channelId, messageId, "Snailrace: "+raceState.Race.Id, description, components)
 
@@ -97,21 +100,25 @@ func renderState(session *discordgo.Session, channelId, messageId, title, descri
 // joinMessage generates the join stage message and components.
 func joinMessage(state snailrace.RaceState) (string, []discordgo.MessageComponent) {
 	description := fmt.Sprintf(
-		"A new race has been hosted!\n\nRace ID: `%s`\nStarting: %s\n\nClick the `Join` button to join with your own snail.\n**Entrants:**\n",
+		"A new race has been hosted!\n\nRace ID: `%s`\nStarting: `%s`\n\nClick the `Join` button to join with your own snail.\n\n",
 		state.Race.Id,
 		state.Race.StartAt.Format(time.DateTime),
 	)
 
-	// Add the snails to the body as entrants `- <snail_name>(<@owner_id>)`
-	for _, snail := range state.Snails {
-		description += fmt.Sprintf("- %s\n", snail.Name)
+	if len(state.Snails) == 0 {
+		description += "> No snails have joined yet\n"
+	} else {
+		description += "**Entrants:**\n"
+		for _, snail := range state.Snails {
+			description += fmt.Sprintf("- %s <@%s>\n", snail.Name, snail.OwnerId) // TODO: Add owner mention
+		}
 	}
 
 	return description, []discordgo.MessageComponent{
 		discordgo.Button{
 			Label:    "Join",
 			Style:    discordgo.SuccessButton,
-			CustomID: "snailrace.host:join_request",
+			CustomID: "snailrace.host:join_request:" + state.Race.Id,
 		},
 	}
 }

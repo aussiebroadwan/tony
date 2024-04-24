@@ -12,6 +12,7 @@ func RegisterSnailraceApp(bot *framework.Bot) framework.Route {
 		&Snailrace{}, // [NOP]
 
 		framework.NewRoute(bot, "host", &SnailraceHostSubCommand{}),
+		framework.NewRoute(bot, "bet", &SnailraceBetSubCommand{}),
 	)
 }
 

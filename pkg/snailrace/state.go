@@ -53,8 +53,8 @@ func (r *RaceState) Start(betTime time.Time) {
 					return
 				}
 
-				r.transitionState(StateBetting)
 				r.puntersPlaceBets()
+				r.transitionState(StateBetting)
 			}
 		case StateBetting:
 			if time.Now().After(r.Race.StartAt) {

@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Race struct represents a single racing event.
@@ -38,10 +40,10 @@ type SnailRaceLink struct {
 	Pool int64 // Total amount of money in the pool for this Snail from the Punters
 }
 
-// calculateOdds computes the betting odds for a snail based on the total pool
+// CalculateOdds computes the betting odds for a snail based on the total pool
 // and snail's pool.
-func calculateOdds(racePool, snailPool int64) float64 {
-	return float64(snailPool) / float64(racePool)
+func CalculateOdds(racePool, snailPool int64) float64 {
+	return float64(racePool) / float64(snailPool)
 }
 
 // newRace creates and initialises a new race with a unique identifier.
@@ -109,15 +111,12 @@ func (r *Race) puntersPlaceBets(punters []Punter) {
 		r.Snails[index].Pool += amount
 		r.Pool += amount
 	}
-
-	// Update odds for each snail after all bets are placed.
-	for _, s := range r.Snails {
-		odds := calculateOdds(r.Pool, s.Pool)
-		s.snail.odds = odds
-	}
+	log.WithField("src", "snailrace").WithField("race", r.Id).Infof("Total pool: %d", r.Pool)
 
 	database.Save(r)
 	for _, s := range r.Snails {
+		odds := CalculateOdds(r.Pool, s.Pool)
+		log.WithField("src", "snailrace").WithField("race", r.Id).WithField("snail", s.snail.Id).WithField("odds", odds).Info("Updated snail odds")
 		database.Save(&s)
 	}
 }

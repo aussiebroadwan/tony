@@ -66,9 +66,9 @@ func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.
 		case snailrace.StateJoining:
 			description, components = joinMessage(raceState)
 		case snailrace.StateBetting:
-			description = "Under construction..."
+			description, components = bettingMessage(raceState)
 		case snailrace.StateInProgress:
-			description = "Under construction..."
+			// description, components = progressMessage(raceState)
 		case snailrace.StateFinished:
 			description = "Under construction..."
 		case snailrace.StateCancelled:
@@ -100,7 +100,8 @@ func renderState(session *discordgo.Session, channelId, messageId, title, descri
 // joinMessage generates the join stage message and components.
 func joinMessage(state snailrace.RaceState) (string, []discordgo.MessageComponent) {
 	description := fmt.Sprintf(
-		"A new race has been hosted!\n\nRace ID: `%s`\nStarting: `%s`\n\nClick the `Join` button to join with your own snail.\n\n",
+		"A new race has been hosted!\n\nRace ID: `%s`\nStarting: `%s`\n\n"+
+			"Click the `Join` button to join with your own snail.\n\n",
 		state.Race.Id,
 		state.Race.StartAt.Format(time.DateTime),
 	)
@@ -119,6 +120,37 @@ func joinMessage(state snailrace.RaceState) (string, []discordgo.MessageComponen
 			Label:    "Join",
 			Style:    discordgo.SuccessButton,
 			CustomID: "snailrace.host:join_request:" + state.Race.Id,
+		},
+	}
+}
+
+// bettingMessage generates the message and componenets required for the
+// betting stage of a race.
+func bettingMessage(state snailrace.RaceState) (string, []discordgo.MessageComponent) {
+	description := fmt.Sprintf(
+		"Bets are now open to everyone, do you feel lucky? To place a quick bet you can select the snail via the drop down. \n\nRace ID: `%s`\nStarting: `%s`\n\n**Entrants:**\n",
+		state.Race.Id,
+		state.Race.StartAt.Format(time.DateTime),
+	)
+
+	menuOptions := make([]discordgo.SelectMenuOption, len(state.Snails))
+	for index, snail := range state.Snails {
+		logrus.Infof("Calculating odds for snail %s, race_pool %d, pool %d", snail.Name, state.Race.Pool, state.Race.Snails[index].Pool)
+		odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[index].Pool)
+		description += fmt.Sprintf("`[%d]: %.02f` %s\n", index, odds, snail.Name)
+
+		menuOptions[index] = discordgo.SelectMenuOption{
+			Label:   fmt.Sprintf("%s @ %.02f", snail.Name, odds),
+			Value:   fmt.Sprintf("%d", index),
+			Default: false,
+		}
+	}
+
+	return description, []discordgo.MessageComponent{
+		discordgo.SelectMenu{
+			CustomID:    "snailrace.bet:win_request:" + state.Race.Id,
+			Placeholder: "Select a snail",
+			Options:     menuOptions,
 		},
 	}
 }

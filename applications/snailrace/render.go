@@ -2,6 +2,8 @@ package snailrace_app
 
 import (
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	"github.com/aussiebroadwan/tony/framework"
@@ -68,7 +70,7 @@ func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.
 		case snailrace.StateBetting:
 			description, components = bettingMessage(raceState)
 		case snailrace.StateInProgress:
-			// description, components = progressMessage(raceState)
+			description, components = progressMessage(raceState)
 		case snailrace.StateFinished:
 			description = "Under construction..."
 		case snailrace.StateCancelled:
@@ -78,7 +80,7 @@ func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.
 			return
 		}
 
-		err = renderState(session, channelId, messageId, "Snailrace: "+raceState.Race.Id, description, components)
+		err = renderState(session, channelId, messageId, "Snailrace: User Hosted", description, components)
 
 		if err != nil {
 			ctx.Logger().WithField("state", raceState.State).WithError(err).Error("Failed to render game state")
@@ -111,7 +113,7 @@ func joinMessage(state snailrace.RaceState) (string, []discordgo.MessageComponen
 	} else {
 		description += "**Entrants:**\n"
 		for _, snail := range state.Snails {
-			description += fmt.Sprintf("- %s <@%s>\n", snail.Name, snail.OwnerId) // TODO: Add owner mention
+			description += fmt.Sprintf("- %s <@%s>\n", snail.Name, snail.OwnerId)
 		}
 	}
 
@@ -151,6 +153,57 @@ func bettingMessage(state snailrace.RaceState) (string, []discordgo.MessageCompo
 			CustomID:    "snailrace.bet:win_request:" + state.Race.Id,
 			Placeholder: "Select a snail",
 			Options:     menuOptions,
+		},
+	}
+}
+
+func renderPosition(position, maxRaceLength float64) string {
+	trail := int((position/float64(maxRaceLength))*20.0) - 1
+	line := strings.Repeat(".", int(math.Max(0.0, float64(trail))))
+	line += "🐌"
+
+	return fmt.Sprintf("%-20s", line)
+}
+
+func progressMessage(state snailrace.RaceState) (string, []discordgo.MessageComponent) {
+
+	description := fmt.Sprintf("```\nRace ID: %s\n\n", state.Race.Id)
+	description += "                          🏁\n"
+	description += "  |-----------------------|\n"
+
+	entrants := "**Entrants:**\n"
+
+	for index, snail := range state.Snails {
+		odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[index].Pool)
+
+		position := 100.0
+		if state.Step < len(state.SnailPositions[index]) {
+			position = state.SnailPositions[index][state.Step]
+		}
+		line := renderPosition(position, 100.0)
+
+		if state.Step >= len(state.SnailPositions[index]) {
+			if place, ok := state.Place[index]; ok {
+				description += fmt.Sprintf("%2d| %s %d\n", index, line, place)
+			} else {
+				description += fmt.Sprintf("%2d| %s ?\n", index, line)
+			}
+		} else {
+			description += fmt.Sprintf("%2d| %s |\n", index, line)
+		}
+
+		entrants += fmt.Sprintf("`[%d]: %.02f` %s\n", index, odds, snail.Name)
+
+	}
+	description += "  |-----------------------|\n\n```\n"
+	description += entrants
+
+	return description, []discordgo.MessageComponent{
+		discordgo.Button{
+			Label:    "Racing",
+			Disabled: true,
+			Style:    discordgo.SuccessButton,
+			CustomID: "snailrace.host:" + state.Race.Id,
 		},
 	}
 }

@@ -1,8 +1,11 @@
 package snailrace
 
 import (
+	"crypto/md5"
 	"crypto/sha1"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math/rand"
 	"time"
 )
@@ -79,8 +82,11 @@ func GenerateSnail() Snail {
 // race ID to generate a random seed. It outputs an array of positions
 // representing the snail's position for each second of the race up to 100
 // seconds or until the snail crosses the finish line at position 100.
-func (s Snail) SimulateRace(raceID int64) []float64 {
-	r := rand.New(rand.NewSource(raceID))
+func (s Snail) SimulateRace(raceID string) []float64 {
+	// Generate a random seed based on the race ID
+	h := md5.New()
+	io.WriteString(h, raceID)
+	r := rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(h.Sum(nil)))))
 
 	positions := make([]float64, 0)
 	positions = append(positions, 0)

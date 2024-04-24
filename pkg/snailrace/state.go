@@ -2,6 +2,7 @@ package snailrace
 
 import (
 	"math/rand"
+	"sort"
 	"time"
 )
 
@@ -29,7 +30,9 @@ type RaceState struct {
 	State int
 	Step  int
 
-	Snails []*Snail
+	Snails         []*Snail
+	SnailPositions map[int][]float64
+	Place          map[int]int
 
 	MessageId string
 	ChannelId string
@@ -58,6 +61,8 @@ func (r *RaceState) Start(betTime time.Time) {
 			}
 		case StateBetting:
 			if time.Now().After(r.Race.StartAt) {
+				r.SnailPositions = make(map[int][]float64)
+				r.SimulateRace()
 				r.transitionState(StateInProgress)
 			}
 		case StateInProgress:
@@ -84,6 +89,34 @@ func (r *RaceState) Join(snail Snail) {
 	snailPtr := &snail
 	r.Snails = append(r.Snails, snailPtr)
 	r.Race.joinRace(snailPtr)
+}
+
+func (r *RaceState) SimulateRace() {
+
+	// Temporary struct to hold the results of the snails positions in the race
+	type Result struct {
+		SnailIndex int
+		Positions  int
+	}
+	var results []Result
+
+	// Build the race positions for the snails
+	for i, snail := range r.Race.Snails {
+		positions := snail.snail.SimulateRace(r.Race.Id)
+		r.SnailPositions[i] = positions
+		results = append(results, Result{SnailIndex: i, Positions: len(positions)})
+	}
+
+	// Sort results by the number of positions, ascending (fewer positions means faster)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Positions < results[j].Positions
+	})
+
+	// Cache the final placements of the snails
+	r.Place = make(map[int]int)
+	for i, result := range results {
+		r.Place[result.SnailIndex] = i + 1
+	}
 }
 
 // puntersPlaceBets handles the betting process for all punters.

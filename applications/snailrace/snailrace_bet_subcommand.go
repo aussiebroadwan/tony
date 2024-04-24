@@ -22,17 +22,6 @@ func (c SnailraceBetSubCommand) GetType() framework.AppType {
 func (c SnailraceBetSubCommand) OnEvent(ctx framework.EventContext, eventType discordgo.InteractionType) {
 	values := strings.Split(ctx.EventValue(), ":")
 
-	if eventType != discordgo.InteractionMessageComponent {
-		ctx.Logger().Error("Invalid event type")
-		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "**Error**: Invalid event type",
-			},
-		})
-	}
-
 	switch values[0] {
 	case "win":
 		handleWinBet(ctx, values[1], values[2])
@@ -41,7 +30,6 @@ func (c SnailraceBetSubCommand) OnEvent(ctx framework.EventContext, eventType di
 	default:
 		ctx.Logger().Error("Invalid event type")
 	}
-
 }
 
 func handleWinRequest(ctx framework.EventContext, raceID string) {

@@ -11,6 +11,7 @@ const (
 	StateBetting
 	StateInProgress
 	StateFinished
+	StateCancelled
 )
 
 // AchievementCallback defines a callback function type for when an achievement
@@ -41,11 +42,17 @@ func (r *RaceState) Start(betTime time.Time) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
+	r.stateCb(*r, r.MessageId, r.ChannelId)
 
+	for range ticker.C {
 		switch r.State {
 		case StateJoining:
 			if time.Now().After(betTime) {
+				if len(r.Snails) == 0 {
+					r.transitionState(StateCancelled)
+					return
+				}
+
 				r.transitionState(StateBetting)
 				r.puntersPlaceBets()
 			}
@@ -60,7 +67,7 @@ func (r *RaceState) Start(betTime time.Time) {
 			} else {
 				r.transitionState(StateFinished)
 			}
-		case StateFinished:
+		case StateFinished, StateCancelled:
 			return
 		}
 	}

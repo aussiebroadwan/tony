@@ -21,7 +21,7 @@ type Snailrace struct {
 }
 
 func (s Snailrace) GetType() framework.AppType {
-	return framework.AppTypeCommand | framework.AppTypeEvent | framework.AppTypeMountable
+	return framework.AppTypeCommand | framework.AppTypeMountable
 }
 
 func (s Snailrace) OnMount(ctx framework.MountContext) {
@@ -43,35 +43,3 @@ func (s Snailrace) GetDefinition() *discordgo.ApplicationCommand {
 }
 
 func (s Snailrace) OnCommand(ctx framework.CommandContext) {}
-
-type SnailraceHostSubCommand struct {
-	framework.ApplicationSubCommand
-}
-
-func (c SnailraceHostSubCommand) GetType() framework.AppType {
-	return framework.AppTypeSubCommand
-}
-
-func (c SnailraceHostSubCommand) OnCommand(ctx framework.CommandContext) {
-
-	err := snailrace.HostRace(stateRenderer(ctx))
-	if err != nil {
-		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Failed to host snailrace",
-			},
-		})
-		return
-	}
-
-	// Respond with the reminder ID
-	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "Setting up a snailrace...",
-		},
-	})
-}

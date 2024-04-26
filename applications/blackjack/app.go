@@ -1,4 +1,4 @@
-package blackjackApp
+package blackjack_app
 
 import (
 	"slices"
@@ -178,7 +178,19 @@ func OnJoin(ctx framework.EventContext) {
 	}
 
 	// Charge the user's balance
-	wallet.Debit(ctx.Database(), ctx.GetUser().ID, int64(betInt), "Blackjack bet", "blackjack")
+	err = wallet.Debit(ctx.Database(), ctx.GetUser().ID, int64(betInt), "Blackjack bet", "blackjack")
+	if err != nil {
+		// You can react to button presses with no data and it doesn't error or send a message
+		ctx.Logger().WithError(err).Error("Failed to charge user")
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "**Error**: " + err.Error(),
+			},
+		})
+		return
+	}
 
 	// You can react to button presses with no data and it doesn't error or send a message
 	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{

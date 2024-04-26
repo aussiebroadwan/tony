@@ -7,10 +7,10 @@ WORKDIR /app
 COPY . .
 
 # Download the dependencies
-RUN go mod download
+# RUN go mod download
 
 # Build the application 
-RUN CGO_ENABLED=0 go build -o tony .
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o tony .
 
 FROM scratch
 

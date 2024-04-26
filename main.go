@@ -7,8 +7,9 @@ import (
 
 	app "github.com/aussiebroadwan/tony/applications"
 	"github.com/aussiebroadwan/tony/applications/autopin"
-	blackjackApp "github.com/aussiebroadwan/tony/applications/blackjack"
+	blackjack_app "github.com/aussiebroadwan/tony/applications/blackjack"
 	"github.com/aussiebroadwan/tony/applications/remind"
+	snailrace_app "github.com/aussiebroadwan/tony/applications/snailrace"
 	walletApp "github.com/aussiebroadwan/tony/applications/wallet"
 	"github.com/aussiebroadwan/tony/pkg/tradingcards"
 	"github.com/aussiebroadwan/tony/pkg/wallet"
@@ -77,7 +78,8 @@ func main() {
 		remind.RegisterRemindApp(bot),
 		autopin.RegisterAutopinApp(bot),
 
-		blackjackApp.RegisterBlackjackApp(bot),
+		blackjack_app.RegisterBlackjackApp(bot),
+		snailrace_app.RegisterSnailraceApp(bot),
 
 		app.RegisterNewsModeration(bot),
 		app.RegisterRSSModeration(bot),

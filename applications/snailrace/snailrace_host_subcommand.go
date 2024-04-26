@@ -74,8 +74,6 @@ func (c SnailraceHostSubCommand) OnEvent(ctx framework.EventContext, eventType d
 	}
 }
 
-const CommonSnailUsage = 25
-
 func OnNewSnail(ctx framework.EventContext) func(snailrace.Snail) {
 	return func(snail snailrace.Snail) {
 		ctx.Logger().WithFields(log.Fields{

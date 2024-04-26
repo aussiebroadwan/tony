@@ -6,6 +6,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+const CommonSnailUsage = 25
+
 func RegisterSnailraceApp(bot *framework.Bot) framework.Route {
 	return framework.NewRoute(bot, "snailrace",
 		// snailrace

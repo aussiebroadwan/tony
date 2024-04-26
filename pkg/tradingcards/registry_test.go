@@ -273,7 +273,7 @@ func TestUseCard(t *testing.T) {
 
 	// Use Card
 	err = UseCard(db, "1", card.Name)
-	if err != nil {
+	if err != ErrCardBroken {
 		t.Errorf("UseCard failed: %v", err)
 		return
 	}

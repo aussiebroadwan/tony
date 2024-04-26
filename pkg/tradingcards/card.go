@@ -29,6 +29,7 @@ var (
 	ErrAlreadyHaveCard     = errors.New("user already has card")
 	ErrDeleteCard          = errors.New("cant delete card from user")
 	ErrCardUnbreakable     = errors.New("card is unbreakable")
+	ErrCardBroken          = errors.New("card is broken")
 )
 
 type UserCard struct {

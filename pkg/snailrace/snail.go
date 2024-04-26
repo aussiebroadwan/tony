@@ -22,6 +22,29 @@ const (
 	Stoneclad
 )
 
+func SnailType(t int) string {
+	switch t {
+	case Prisimshell:
+		return "Prisimshell"
+	case Thunderhorn:
+		return "Thunderhorn"
+	case Royalcrest:
+		return "Royalcrest"
+	case Circuitshell:
+		return "Circuitshell"
+	case Infernoshell:
+		return "Infernoshell"
+	case Obsidianshell:
+		return "Obsidianshell"
+	case Chillshell:
+		return "Chillshell"
+	case Stoneclad:
+		return "Stoneclad"
+	default:
+		return "Unknown"
+	}
+}
+
 type Snail struct {
 	Id      string `gorm:"primaryKey"`
 	OwnerId string
@@ -41,7 +64,27 @@ type Snail struct {
 	Prev3Place int
 }
 
-func (s *Snail) generateId() {
+var random = rand.New(rand.NewSource(time.Now().Unix()))
+
+// GenerateSnail generates a random snail with random stats and a random type.
+func GenerateSnail() Snail {
+
+	s := Snail{
+		Name:    generateSnailName(random),
+		OwnerId: "",
+		Type:    random.Intn(8), // 8 snail types
+
+		Speed:        random.Float64()*9 + 1,
+		Acceleration: random.Float64()*0.9 + 0.1,
+		Weight:       random.Float64()*9 + 1,
+		Stamina:      random.Intn(91) + 10,
+		Luck:         random.Float64() - 0.5,
+
+		Prev1Place: 0,
+		Prev2Place: 0,
+		Prev3Place: 0,
+	}
+
 	// Hash the snail's name and stats to generate a unique ID
 	hasher := sha1.New()
 	hasher.Write([]byte(s.Name))
@@ -52,28 +95,6 @@ func (s *Snail) generateId() {
 	hasher.Write([]byte(fmt.Sprintf("%f", s.Luck)))
 
 	s.Id = fmt.Sprintf("snail_%d%x", s.Type, hasher.Sum(nil))
-}
-
-// GenerateSnail generates a random snail with random stats and a random type.
-func GenerateSnail() Snail {
-	r := rand.New(rand.NewSource(time.Now().Unix()))
-
-	s := Snail{
-		Name:    generateSnailName(r),
-		OwnerId: "",
-		Type:    r.Intn(8), // 8 snail types
-
-		Speed:        r.Float64()*9 + 1,
-		Acceleration: r.Float64()*0.9 + 0.1,
-		Weight:       r.Float64()*9 + 1,
-		Stamina:      r.Intn(91) + 10,
-		Luck:         r.Float64() - 0.5,
-
-		Prev1Place: 0,
-		Prev2Place: 0,
-		Prev3Place: 0,
-	}
-	s.generateId()
 
 	return s
 }
@@ -86,6 +107,11 @@ func (s Snail) SimulateRace(raceID string) []float64 {
 	// Generate a random seed based on the race ID
 	h := md5.New()
 	io.WriteString(h, raceID)
+	io.WriteString(h, fmt.Sprintf("%f", s.Speed))
+	io.WriteString(h, fmt.Sprintf("%f", s.Acceleration))
+	io.WriteString(h, fmt.Sprintf("%f", s.Weight))
+	io.WriteString(h, fmt.Sprintf("%d", s.Stamina))
+	io.WriteString(h, fmt.Sprintf("%f", s.Luck))
 	r := rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(h.Sum(nil)))))
 
 	positions := make([]float64, 0)
@@ -96,19 +122,16 @@ func (s Snail) SimulateRace(raceID string) []float64 {
 	for positions[len(positions)-1] < 100 && time < 100 {
 		// Increase speed based on acceleration
 		if currentSpeed < s.Speed {
-			currentSpeed += min(s.Acceleration, s.Speed-currentSpeed)
-		}
+			maxSpeed := s.Speed
+			if time > s.Stamina {
+				maxSpeed = float64(s.Stamina) / s.Weight
+			}
 
-		// Apply weight impact
-		currentSpeed -= s.Weight * 0.01
-
-		// Apply stamina impact
-		if time > s.Stamina {
-			currentSpeed *= 0.9
+			currentSpeed += min(s.Acceleration, maxSpeed-currentSpeed)
 		}
 
 		// Apply luck and random fluctuations
-		currentSpeed += (r.Float64()*2 - 1) * s.Luck
+		currentSpeed += (r.Float64()*2 - 1) + (s.Luck * 0.1)
 
 		// Ensure speed does not drop below 0
 		currentSpeed = max(currentSpeed, 0)

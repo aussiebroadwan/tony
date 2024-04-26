@@ -13,6 +13,8 @@ const (
 	StateInProgress
 	StateFinished
 	StateCancelled
+
+	MinRacers = 2
 )
 
 // AchievementCallback defines a callback function type for when an achievement
@@ -34,6 +36,7 @@ type RaceState struct {
 	SnailPositions map[int][]float64
 	Place          map[int]int
 	RequriedSteps  int
+	snailsToRemove []string
 
 	MessageId string
 	ChannelId string
@@ -52,7 +55,7 @@ func (r *RaceState) Start(betTime time.Time) {
 		switch r.State {
 		case StateJoining:
 			if time.Now().After(betTime) {
-				if len(r.Snails) == 0 {
+				if len(r.Snails) < MinRacers {
 					r.transitionState(StateCancelled)
 					return
 				}
@@ -71,9 +74,11 @@ func (r *RaceState) Start(betTime time.Time) {
 				r.Step++
 				r.stateCb(*r, r.MessageId, r.ChannelId)
 			} else {
+				r.updateSnailHistory()
 				r.transitionState(StateFinished)
 			}
 		case StateFinished, StateCancelled:
+			r.removeMarkedSnail()
 			return
 		}
 	}
@@ -86,10 +91,19 @@ func (r *RaceState) transitionState(newState int) {
 }
 
 // Join adds a snail to the race.
-func (r *RaceState) Join(snail Snail) {
+func (r *RaceState) Join(snail Snail) error {
 	snailPtr := &snail
+
+	// check if the snail is already joined
+	for _, s := range r.Snails {
+		if s.Id == snailPtr.Id {
+			return ErrAlreadyJoined
+		}
+	}
+
 	r.Snails = append(r.Snails, snailPtr)
 	r.Race.joinRace(snailPtr)
+	return nil
 }
 
 func (r *RaceState) SimulateRace() {
@@ -123,6 +137,30 @@ func (r *RaceState) SimulateRace() {
 	for i, result := range results {
 		r.Place[result.SnailIndex] = i + 1
 	}
+}
+
+func (r *RaceState) updateSnailHistory() {
+	for i := range r.Snails {
+		var snail = Snail{Id: r.Snails[i].Id}
+		database.First(&snail)
+
+		// Update the snail's history
+		snail.Prev3Place = snail.Prev2Place
+		snail.Prev2Place = snail.Prev1Place
+		snail.Prev1Place = r.Place[i]
+
+		// Save the snail's updated history
+		database.Save(&snail)
+	}
+}
+
+func (r *RaceState) removeMarkedSnail() {
+	snails := []Snail{}
+	for _, id := range r.snailsToRemove {
+		snails = append(snails, Snail{Id: id})
+	}
+
+	database.Unscoped().Delete(&snails)
 }
 
 // puntersPlaceBets handles the betting process for all punters.

@@ -1,11 +1,18 @@
 package snailrace_app
 
 import (
+	"errors"
+	"fmt"
 	"strings"
+
+	"github.com/aussiebroadwan/tony/applications/snailrace/render"
 
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/pkg/snailrace"
+	"github.com/aussiebroadwan/tony/pkg/tradingcards"
 	"github.com/bwmarrin/discordgo"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type SnailraceHostSubCommand struct {
@@ -19,7 +26,7 @@ func (c SnailraceHostSubCommand) GetType() framework.AppType {
 
 func (c SnailraceHostSubCommand) OnCommand(ctx framework.CommandContext) {
 
-	err := snailrace.HostRace(stateRenderer(ctx))
+	err := snailrace.HostRace(render.StateRenderer(ctx))
 	if err != nil {
 		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -67,10 +74,53 @@ func (c SnailraceHostSubCommand) OnEvent(ctx framework.EventContext, eventType d
 	}
 }
 
+const CommonSnailUsage = 25
+
+func OnNewSnail(ctx framework.EventContext) func(snailrace.Snail) {
+	return func(snail snailrace.Snail) {
+		ctx.Logger().WithFields(log.Fields{
+			"src":   "snailrace",
+			"snail": snail.Id,
+
+			"speed":        snail.Speed,
+			"acceleration": snail.Acceleration,
+			"stamina":      snail.Stamina,
+			"weight":       snail.Weight,
+			"luck":         snail.Luck,
+		}).Info("Generated snail: ", snail.Name)
+
+		err := tradingcards.RegisterCard(ctx.Database(), tradingcards.Card{
+			Name: snail.Id,
+
+			Title:       snail.Name,
+			Description: fmt.Sprintf("A raceable %s snail.", snailrace.SnailType(snail.Type)),
+			Application: "snailrace",
+
+			Rarity:      tradingcards.CardRarityCommon,
+			Usable:      true,
+			Tradable:    true,
+			Unbreakable: false,
+			MaxUsage:    CommonSnailUsage,
+			SVG:         "",
+		})
+		if err != nil {
+			ctx.Logger().WithError(err).Error("Failed to register snail card")
+			return
+		}
+
+		ctx.Logger().Info("Registered snail card: ", snail.Id)
+		err = tradingcards.AssignCard(ctx.Database(), ctx.GetUser().ID, snail.Id)
+		if err != nil {
+			ctx.Logger().WithError(err).Error("Failed to assign snail card")
+			return
+		}
+	}
+}
+
 func handleJoinRequest(ctx framework.EventContext, raceId string) {
 	user := ctx.GetUser()
 
-	snails, err := snailrace.GetSnails(user.ID)
+	snails, err := snailrace.GetSnails(user.ID, OnNewSnail(ctx))
 	if err != nil {
 		ctx.Logger().WithError(err).Error("Failed to get snails")
 		return
@@ -79,8 +129,10 @@ func handleJoinRequest(ctx framework.EventContext, raceId string) {
 	// Convert user's snails to modal options
 	menuOptions := make([]discordgo.SelectMenuOption, len(snails))
 	for i, snail := range snails {
+		// Get the trading card usages
+		card, _ := tradingcards.GetUserCard(ctx.Database(), user.ID, snail.Id)
 		menuOptions[i] = discordgo.SelectMenuOption{
-			Label:   snail.Name, // TODO: Add usages left
+			Label:   fmt.Sprintf("%s (%d/%d)", snail.Name, card.CurrentUsage, card.MaxUsage),
 			Value:   snail.Id,
 			Default: false,
 		}
@@ -127,6 +179,19 @@ func handleJoin(ctx framework.EventContext, raceId string) {
 			},
 		})
 		return
+	}
+
+	// Decrement the snail's usage
+	err = tradingcards.UseCard(ctx.Database(), ctx.GetUser().ID, snail)
+	if errors.Is(err, tradingcards.ErrCardBroken) {
+		// You can react to button presses with no data and it doesn't error or send a message
+		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "This will be the last time you can race this snail. It will be removed from your deck on race completion.",
+			},
+		})
 	}
 
 	// You can react to button presses with no data and it doesn't error or send a message

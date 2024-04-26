@@ -183,7 +183,8 @@ func UseCard(db *gorm.DB, userId, cardName string) error {
 	if !card.Unbreakable {
 		ownedCards[0].Usages--
 		if ownedCards[0].Usages <= 0 {
-			return RevokeCard(db, userId, cardName)
+			RevokeCard(db, userId, cardName)
+			return ErrCardBroken
 		}
 		return db.Save(&(ownedCards[0])).Error
 	}

@@ -2,7 +2,6 @@ package snailrace
 
 import (
 	"crypto/md5"
-	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -66,6 +65,17 @@ type Snail struct {
 
 var random = rand.New(rand.NewSource(time.Now().Unix()))
 
+func hashSnail(s Snail, tag string) []byte {
+	h := md5.New()
+	io.WriteString(h, tag)
+	io.WriteString(h, fmt.Sprintf("%f", s.Speed))
+	io.WriteString(h, fmt.Sprintf("%f", s.Acceleration))
+	io.WriteString(h, fmt.Sprintf("%f", s.Weight))
+	io.WriteString(h, fmt.Sprintf("%d", s.Stamina))
+	io.WriteString(h, fmt.Sprintf("%f", s.Luck))
+	return h.Sum(nil)
+}
+
 // GenerateSnail generates a random snail with random stats and a random type.
 func GenerateSnail() Snail {
 
@@ -86,15 +96,8 @@ func GenerateSnail() Snail {
 	}
 
 	// Hash the snail's name and stats to generate a unique ID
-	hasher := sha1.New()
-	hasher.Write([]byte(s.Name))
-	hasher.Write([]byte(fmt.Sprintf("%f", s.Speed)))
-	hasher.Write([]byte(fmt.Sprintf("%f", s.Acceleration)))
-	hasher.Write([]byte(fmt.Sprintf("%f", s.Weight)))
-	hasher.Write([]byte(fmt.Sprintf("%d", s.Stamina)))
-	hasher.Write([]byte(fmt.Sprintf("%f", s.Luck)))
 
-	s.Id = fmt.Sprintf("snail_%d%x", s.Type, hasher.Sum(nil))
+	s.Id = fmt.Sprintf("snail_%d%x", s.Type, hashSnail(s, s.Name))
 
 	return s
 }
@@ -105,14 +108,8 @@ func GenerateSnail() Snail {
 // seconds or until the snail crosses the finish line at position 100.
 func (s Snail) SimulateRace(raceID string) []float64 {
 	// Generate a random seed based on the race ID
-	h := md5.New()
-	io.WriteString(h, raceID)
-	io.WriteString(h, fmt.Sprintf("%f", s.Speed))
-	io.WriteString(h, fmt.Sprintf("%f", s.Acceleration))
-	io.WriteString(h, fmt.Sprintf("%f", s.Weight))
-	io.WriteString(h, fmt.Sprintf("%d", s.Stamina))
-	io.WriteString(h, fmt.Sprintf("%f", s.Luck))
-	r := rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(h.Sum(nil)))))
+	hash := int64(binary.BigEndian.Uint64(hashSnail(s, raceID)))
+	r := rand.New(rand.NewSource(hash))
 
 	positions := make([]float64, 0)
 	positions = append(positions, 0)

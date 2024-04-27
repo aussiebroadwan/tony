@@ -10,7 +10,9 @@ import (
 )
 
 const (
-	NumberOfPunters = 256
+	NumberOfPunters  = 256 // Randomly Generated Punters for setting odds
+	NumberOfSnails   = 512 // Randomly Generated Snails (OwnerID = "generated")
+	GeneratedOwnerId = "generated"
 )
 
 var (
@@ -33,6 +35,27 @@ func setupPunters() error {
 			return err
 		}
 		log.WithField("src", "snailrace").WithField("punter", punter.ID).Info("Generated punter")
+	}
+
+	return nil
+}
+
+func setupSnails() error {
+	var count int64
+	result := database.Model(&Snail{}).Where(Snail{OwnerId: GeneratedOwnerId}).Count(&count)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// Generate and save missing snails
+	for i := int(count); i < NumberOfSnails; i++ {
+		snail := GenerateSnail()
+		snail.OwnerId = GeneratedOwnerId
+
+		if err := database.Create(&snail).Error; err != nil {
+			return err
+		}
+		log.WithField("src", "snailrace").WithField("snail", snail.Id).Info("Generated snail")
 	}
 
 	return nil
@@ -82,7 +105,13 @@ func SetupSnailraceDB(db *gorm.DB) error {
 		return err
 	}
 
+	// Generate Punters for setting odds in all races
 	if err := setupPunters(); err != nil {
+		return err
+	}
+
+	// Generate Snails for Snailrace TV
+	if err := setupSnails(); err != nil {
 		return err
 	}
 

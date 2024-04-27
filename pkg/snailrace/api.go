@@ -24,8 +24,7 @@ func HostRace(stateCb StateChangeCallback, achievementCb AchievementCallback, me
 	defer manager.mu.Unlock()
 
 	now := time.Now()
-	race := newRace() // Simplify race creation with a safe newRace function
-	race.StartAt = now.Add(StartDelay).Add(JoinDelay)
+	race := newRace(now.Add(StartDelay).Add(JoinDelay), true) // Simplify race creation with a safe newRace function
 
 	r := &RaceState{
 		Race:           race,

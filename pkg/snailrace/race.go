@@ -14,8 +14,9 @@ import (
 type Race struct {
 	Id string `gorm:"primaryKey"`
 
-	StartAt time.Time // Time when the race is scheduled to start
-	Pool    int64     // Total amount of money in the pool from the Punters
+	UserHosted bool
+	StartAt    time.Time // Time when the race is scheduled to start
+	Pool       int64     // Total amount of money in the pool from the Punters
 
 	mu       sync.Mutex      `gorm:"-"`
 	Snails   []SnailRaceLink `gorm:"-"`
@@ -47,15 +48,17 @@ func CalculateOdds(racePool, snailPool int64) float64 {
 }
 
 // newRace creates and initialises a new race with a unique identifier.
-func newRace() *Race {
+func newRace(startTime time.Time, hosted bool) *Race {
 	id := uuid.New().String()[24:] // Truncating UUID to get a shorter ID.
 
 	r := &Race{
-		Id:       id,
-		Pool:     0,
-		Snails:   make([]SnailRaceLink, 0),
-		UserBets: make([]UserBet, 0),
-		mu:       sync.Mutex{},
+		Id:         id,
+		Pool:       0,
+		UserHosted: hosted,
+		StartAt:    startTime,
+		Snails:     make([]SnailRaceLink, 0),
+		UserBets:   make([]UserBet, 0),
+		mu:         sync.Mutex{},
 	}
 	database.Create(r)
 	return r

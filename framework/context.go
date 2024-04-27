@@ -17,6 +17,7 @@ const (
 	ctxDatabase    ContextKey = "db"
 	ctxLogger      ContextKey = "logger"
 	ctxEventValue  ContextKey = "event_val"
+	ctxRouteKey    ContextKey = "route_key"
 
 	ctxReactionValue ContextKey = "reaction_val"
 	ctxReactionAdd   ContextKey = "reaction_add"
@@ -38,6 +39,7 @@ type CommandContext interface {
 	Interaction() *discordgo.Interaction
 	GetOption(string) *discordgo.ApplicationCommandInteractionDataOption
 	GetUser() *discordgo.User
+	GetRoute() string
 	Database() *gorm.DB
 	Logger() *log.Entry
 }
@@ -50,6 +52,12 @@ type EventContext interface {
 	Database() *gorm.DB
 	Logger() *log.Entry
 	EventValue() string
+}
+
+type ResponseContext interface {
+	Session() *discordgo.Session
+	Interaction() *discordgo.Interaction
+	Logger() *log.Entry
 }
 
 type MessageContext interface {
@@ -102,6 +110,9 @@ func (c *Context) Message() *discordgo.Message {
 
 func (c *Context) Interaction() *discordgo.Interaction {
 	return c.ctx.Value(ctxInteraction).(*discordgo.Interaction)
+}
+func (c *Context) GetRoute() string {
+	return c.ctx.Value(ctxRouteKey).(string)
 }
 
 func (c *Context) GetUser() *discordgo.User {
@@ -182,5 +193,11 @@ func withReaction(r *discordgo.MessageReaction, add bool) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, ctxReactionValue, r)
 		c.ctx = context.WithValue(c.ctx, ctxReactionAdd, add)
+	}
+}
+
+func withRoute(route string) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, ctxRouteKey, route)
 	}
 }

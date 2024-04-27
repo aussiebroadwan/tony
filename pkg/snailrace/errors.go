@@ -10,4 +10,6 @@ var (
 	ErrSnailNotFound     = errors.New("snail not found")
 	ErrNotSnailOwner     = errors.New("not the owner of the snail")
 	ErrAlreadyJoined     = errors.New("already joined the race")
+	ErrUnjoinableRace    = errors.New("this race is not joinable")
+	ErrInvalidBet        = errors.New("invalid bet")
 )

@@ -160,6 +160,9 @@ func (r *RaceState) removeMarkedSnail() {
 		snails = append(snails, Snail{Id: id})
 	}
 
+	if len(snails) == 0 {
+		return
+	}
 	database.Unscoped().Delete(&snails)
 }
 

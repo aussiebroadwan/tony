@@ -31,7 +31,7 @@ func routeBuilder(i *discordgo.InteractionCreate) string {
 	}
 
 	// Recursive case: If there are options of type SubCommand, append the option name to the route key
-	if i.ApplicationCommandData().Options[0].Type != discordgo.ApplicationCommandOptionSubCommand {
+	if i.ApplicationCommandData().Options[0].Type != discordgo.ApplicationCommandOptionSubCommand && i.ApplicationCommandData().Options[0].Type != discordgo.ApplicationCommandOptionSubCommandGroup {
 		return routeKey
 	}
 

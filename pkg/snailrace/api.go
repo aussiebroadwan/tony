@@ -54,7 +54,7 @@ func GetSnails(userId string, onNewSnail func(s Snail)) ([]Snail, error) {
 		return nil, err
 	}
 
-	if len(snails) < 1 {
+	for len(snails) < 5 {
 		snail := GenerateSnail()
 		snail.OwnerId = userId
 		if err := database.Create(&snail).Error; err != nil {
@@ -90,6 +90,10 @@ func JoinRace(userId, raceId, snailId string) error {
 		return ErrRaceNotFound
 	}
 
+	if !r.Race.UserHosted {
+		return ErrUnjoinableRace
+	}
+
 	if r.State != StateJoining {
 		return ErrInvalidRaceState
 	}
@@ -106,7 +110,7 @@ func JoinRace(userId, raceId, snailId string) error {
 // race, and the bet amount. It checks if the race is in the betting state and
 // if the race exists. It returns an error if the race is not found or not in
 // the correct state.
-func PlaceBet(userId, raceId string, snailIdx int, amount int64) error {
+func PlaceBet(userId, raceId string, amount int64, betType int, snailIdx ...int) error {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
 	r, ok := manager.races[raceId]
@@ -118,8 +122,7 @@ func PlaceBet(userId, raceId string, snailIdx int, amount int64) error {
 		return ErrInvalidRaceState
 	}
 
-	r.Race.placeBet(userId, snailIdx, amount)
-	return nil
+	return r.Race.placeBet(userId, amount, betType, snailIdx...)
 }
 
 // DeleteSnailAfterRace marks a snail to be removed from the database after the

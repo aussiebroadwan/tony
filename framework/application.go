@@ -160,6 +160,13 @@ func checkApplicationImplementation(bot *Bot, app Application, name string) bool
 
 func GetOption(opts []*discordgo.ApplicationCommandInteractionDataOption, key string) (*discordgo.ApplicationCommandInteractionDataOption, error) {
 	for _, opt := range opts {
+		if opt.Options != nil {
+			opt, err := GetOption(opt.Options, key)
+			if err == nil {
+				return opt, nil
+			}
+		}
+
 		if opt.Name == key {
 			return opt, nil
 		}

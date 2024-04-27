@@ -122,6 +122,7 @@ func (b *Bot) interactionCreateHandler() func(s *discordgo.Session, i *discordgo
 			withDatabase(b.db),
 			withInteraction(i.Interaction),
 			withMessage(i.Interaction.Message),
+			withRoute(routeKey),
 			withLogger(b.lg.WithFields(log.Fields{
 				"route": routeKey,
 				"type":  i.Type.String(),

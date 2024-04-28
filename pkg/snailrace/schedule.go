@@ -1,6 +1,7 @@
 package snailrace
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -22,7 +23,7 @@ var weekScheduleHours = map[time.Weekday][2]time.Duration{
 	time.Wednesday: {11 * time.Hour, 20 * time.Hour},
 	time.Thursday:  {11 * time.Hour, 20 * time.Hour},
 	time.Friday:    {10 * time.Hour, 22 * time.Hour},
-	time.Saturday:  {10 * time.Hour, 22 * time.Hour},
+	time.Saturday:  {10 * time.Hour, 24 * time.Hour},
 	time.Sunday:    {9 * time.Hour, 21 * time.Hour},
 }
 
@@ -40,15 +41,25 @@ func LaunchSnailraceTV(onRaceReady RaceReadyCallback) {
 		races := getTodaysScheduledRaces()
 		raceIdx := 0
 
+		for _, i := range races {
+			fmt.Printf("rr: %+v\n", i)
+		}
+		fmt.Printf("m: %+v\n", manager.races)
+
 		for range ticker.C {
+			fmt.Println("tick")
 			if today != time.Now().Format(time.DateOnly) {
 				ticker.Stop()
+				fmt.Println("How?!")
 				break
 			}
 
 			raceIdx = manageRaces(races, raceIdx, onRaceReady)
+			fmt.Println("tock")
 		}
 	}
+
+	fmt.Println("SHITS FUCKED")
 }
 
 // manageRaces checks for upcoming races and triggers them at the scheduled
@@ -59,6 +70,8 @@ func manageRaces(races []*Race, raceIdx int, onRaceReady RaceReadyCallback) int 
 	}
 
 	targetTime := races[raceIdx].StartAt.Add(-RaceReadyDuration)
+
+	fmt.Printf("targetTime: %v\n", targetTime)
 
 	if time.Now().After(targetTime) {
 		targetTime := races[raceIdx].StartAt.Add(-RaceReadyDuration)
@@ -79,25 +92,31 @@ func updateScheduledRaceState(race *Race, stateCb StateChangeCallback, achieveme
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
 
-	state := manager.races[race.Id]
+	state := manager.races[race.ID]
 	state.stateCb = stateCb
 	state.achievementCb = achievementCb
 	state.MessageId = messageId
 	state.ChannelId = channelId
-	manager.races[race.Id] = state
+	manager.races[race.ID] = state
 	return state
 }
 
 // getTodaysRaces retrieves all races scheduled for today from the database.
 func getTodaysScheduledRaces() []*Race {
 	var races []Race
-	if err := database.Where(Race{UserHosted: false}).Find(&races).Error; err != nil || len(races) == 0 {
+	err := database.Model(&Race{}).
+		Preload("SnailRaceLinks").
+		Preload("UserBets").
+		Find(&races).Error
+	if err != nil {
 		return []*Race{}
 	}
 
 	todaysRaces := filterRacesByDate(races, time.Now().Format(time.DateOnly))
 	if len(todaysRaces) == 0 {
-		generateTodaysScheduledRaces(todaysRaces)
+		todaysRaces = generateTodaysScheduledRaces()
+	} else {
+		scheduledRaceToState(todaysRaces)
 	}
 
 	return todaysRaces
@@ -108,7 +127,7 @@ func getTodaysScheduledRaces() []*Race {
 func filterRacesByDate(races []Race, date string) []*Race {
 	var todaysRaces []*Race
 	for idx := range races {
-		if races[idx].StartAt.Format("2006-01-02") == date {
+		if races[idx].StartAt.Format("2006-01-02") == date && !races[idx].UserHosted {
 			todaysRaces = append(todaysRaces, &races[idx])
 		}
 	}
@@ -117,16 +136,16 @@ func filterRacesByDate(races []Race, date string) []*Race {
 
 // generateTodaysRaces creates races for today based on the weekly schedule and
 // adds them to the database.
-func generateTodaysScheduledRaces(races []*Race) {
+func generateTodaysScheduledRaces() []*Race {
 	todayTime, _ := time.Parse(time.DateOnly, time.Now().Format(time.DateOnly))
 	twoRaceTimes := weekScheduleHours[time.Now().Weekday()]
 
 	// If the current time is after the first schduled race then skip the
 	// races for today and start over tomorrow. This is so if the bot is
 	// launched in the afternoon it wont schdule an entire day of races
-	if time.Now().After(todayTime.Add(twoRaceTimes[0])) {
-		return
-	}
+	// if time.Now().After(todayTime.Add(twoRaceTimes[0])) {
+	// 	return
+	// }
 
 	// Calculate the time between todays races
 	raceTimeRange := twoRaceTimes[1] - twoRaceTimes[0]
@@ -136,15 +155,47 @@ func generateTodaysScheduledRaces(races []*Race) {
 	// Get all snails that are eligible to participate today
 	snails := getEligibleScheduledSnails()
 	if len(snails) == 0 {
-		return
+		return nil
 	}
 	snailsUsed := 0
 
 	// Create and schedule todays races
+	races := make([]*Race, numRaces)
 	for i := 0; i < numRaces; i++ {
 		startTime := twoRaceTimes[0] + spreadTime*time.Duration(i)
 		races[i] = newRace(todayTime.Add(startTime), false)
 		snailsUsed += manageNewScheduledRaceState(races[i], snails[snailsUsed:])
+	}
+	return races
+}
+
+func scheduledRaceToState(races []*Race) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+
+	for idx := range races {
+		state := &RaceState{
+			Race:           races[idx],
+			State:          StateBetting, // Start in the betting stage to not let user's join
+			Step:           0,
+			Snails:         make([]Snail, 0),
+			snailsToRemove: make([]string, 0),
+		}
+
+		snailIds := make([]string, 0)
+		for _, link := range races[idx].SnailRaceLinks {
+			snailIds = append(snailIds, link.SnailID)
+		}
+
+		err := database.Where("id IN (?)", snailIds).Find(&state.Snails).Error
+		if err != nil {
+			fmt.Println("Error: ", err)
+			return
+		}
+
+		fmt.Printf("[%s]: %+v\n", races[idx].ID, state)
+
+		manager.races[races[idx].ID] = state
 	}
 }
 
@@ -172,7 +223,7 @@ func manageNewScheduledRaceState(race *Race, snails []Snail) int {
 		Race:           race,
 		State:          StateBetting, // Start in the betting stage to not let user's join
 		Step:           0,
-		Snails:         make([]*Snail, 0),
+		Snails:         make([]Snail, 0),
 		snailsToRemove: make([]string, 0),
 	}
 
@@ -184,6 +235,6 @@ func manageNewScheduledRaceState(race *Race, snails []Snail) int {
 	state.puntersPlaceBets()
 
 	// Add race to the manager
-	manager.races[race.Id] = state
+	manager.races[race.ID] = state
 	return numSnails
 }

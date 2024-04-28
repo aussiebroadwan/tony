@@ -173,3 +173,18 @@ func GetOption(opts []*discordgo.ApplicationCommandInteractionDataOption, key st
 	}
 	return nil, fmt.Errorf("option %s not found", key)
 }
+
+func ChannelNameToID(ctx SessionContext, serverID, name string) string {
+	channels, err := ctx.Session().GuildChannels(serverID)
+	if err != nil {
+		return ""
+	}
+
+	for _, channel := range channels {
+		if channel.Name == name {
+			return channel.ID
+		}
+	}
+
+	return ""
+}

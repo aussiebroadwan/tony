@@ -32,7 +32,7 @@ type RaceState struct {
 	State int
 	Step  int
 
-	Snails         []*Snail
+	Snails         []Snail
 	SnailPositions map[int][]float64
 	Place          map[int]int
 	RequriedSteps  int
@@ -92,17 +92,16 @@ func (r *RaceState) transitionState(newState int) {
 
 // Join adds a snail to the race.
 func (r *RaceState) Join(snail Snail) error {
-	snailPtr := &snail
 
 	// check if the snail is already joined
 	for _, s := range r.Snails {
-		if s.Id == snailPtr.Id {
+		if s.ID == snail.ID {
 			return ErrAlreadyJoined
 		}
 	}
 
-	r.Snails = append(r.Snails, snailPtr)
-	r.Race.joinRace(snailPtr)
+	r.Snails = append(r.Snails, snail)
+	r.Race.joinRace(snail)
 	return nil
 }
 
@@ -117,8 +116,8 @@ func (r *RaceState) SimulateRace() {
 	r.RequriedSteps = 0
 
 	// Build the race positions for the snails
-	for i, snail := range r.Race.Snails {
-		positions := snail.snail.SimulateRace(r.Race.Id)
+	for i, link := range r.Race.SnailRaceLinks {
+		positions := link.Snail.SimulateRace(r.Race.ID)
 		r.SnailPositions[i] = positions
 		results = append(results, Result{SnailIndex: i, Positions: len(positions)})
 
@@ -141,7 +140,7 @@ func (r *RaceState) SimulateRace() {
 
 func (r *RaceState) updateSnailHistory() {
 	for i := range r.Snails {
-		var snail = Snail{Id: r.Snails[i].Id}
+		var snail = Snail{ID: r.Snails[i].ID}
 		database.First(&snail)
 
 		// Update the snail's history
@@ -157,7 +156,7 @@ func (r *RaceState) updateSnailHistory() {
 func (r *RaceState) removeMarkedSnail() {
 	snails := []Snail{}
 	for _, id := range r.snailsToRemove {
-		snails = append(snails, Snail{Id: id})
+		snails = append(snails, Snail{ID: id})
 	}
 
 	if len(snails) == 0 {

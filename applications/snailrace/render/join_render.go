@@ -13,7 +13,7 @@ func joinMessage(state snailrace.RaceState) (string, []discordgo.MessageComponen
 	description := fmt.Sprintf(
 		"A new race has been hosted!\n\nRace ID: `%s`\nStarting: `%s`\n\n"+
 			"Click the `Join` button to join with your own snail.\n\n",
-		state.Race.Id,
+		state.Race.ID,
 		state.Race.StartAt.Format(time.DateTime),
 	)
 
@@ -30,7 +30,7 @@ func joinMessage(state snailrace.RaceState) (string, []discordgo.MessageComponen
 		discordgo.Button{
 			Label:    "Join",
 			Style:    discordgo.SuccessButton,
-			CustomID: "snailrace.host:join_request:" + state.Race.Id,
+			CustomID: "snailrace.host:join_request:" + state.Race.ID,
 		},
 	}
 }

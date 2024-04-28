@@ -30,7 +30,7 @@ func HostRace(stateCb StateChangeCallback, achievementCb AchievementCallback, me
 		Race:           race,
 		State:          StateJoining,
 		Step:           0,
-		Snails:         make([]*Snail, 0),
+		Snails:         make([]Snail, 0),
 		snailsToRemove: make([]string, 0),
 		MessageId:      messageId,
 		ChannelId:      channelId,
@@ -38,7 +38,7 @@ func HostRace(stateCb StateChangeCallback, achievementCb AchievementCallback, me
 		achievementCb:  achievementCb,
 	}
 
-	manager.races[race.Id] = r
+	manager.races[race.ID] = r
 	go r.Start(now.Add(JoinDelay)) // Start the race after the joining delay
 
 	return nil
@@ -75,7 +75,7 @@ func GetSnails(userId string, onNewSnail func(s Snail)) ([]Snail, error) {
 // an error.
 func JoinRace(userId, raceId, snailId string) error {
 	snail := Snail{}
-	if err := database.First(&snail, Snail{Id: snailId}).Error; err != nil {
+	if err := database.First(&snail, Snail{ID: snailId}).Error; err != nil {
 		return ErrSnailNotFound
 	}
 

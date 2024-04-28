@@ -23,6 +23,10 @@ const (
 	ctxReactionAdd   ContextKey = "reaction_add"
 )
 
+type SessionContext interface {
+	Session() *discordgo.Session
+}
+
 type StartupContext interface {
 	Session() *discordgo.Session
 	Database() *gorm.DB

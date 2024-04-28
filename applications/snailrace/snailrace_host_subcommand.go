@@ -26,7 +26,7 @@ func (c SnailraceHostSubCommand) GetType() framework.AppType {
 
 func (c SnailraceHostSubCommand) OnCommand(ctx framework.CommandContext) {
 
-	err := snailrace.HostRace(render.StateRenderer(ctx))
+	err := snailrace.HostRace(render.StateRenderer(ctx, ctx.Interaction().ChannelID))
 	if err != nil {
 		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -78,7 +78,7 @@ func OnNewSnail(ctx framework.EventContext) func(snailrace.Snail) {
 	return func(snail snailrace.Snail) {
 		ctx.Logger().WithFields(log.Fields{
 			"src":   "snailrace",
-			"snail": snail.Id,
+			"snail": snail.ID,
 
 			"speed":        snail.Speed,
 			"acceleration": snail.Acceleration,
@@ -88,7 +88,7 @@ func OnNewSnail(ctx framework.EventContext) func(snailrace.Snail) {
 		}).Info("Generated snail: ", snail.Name)
 
 		err := tradingcards.RegisterCard(ctx.Database(), tradingcards.Card{
-			Name: snail.Id,
+			Name: snail.ID,
 
 			Title:       snail.Name,
 			Description: fmt.Sprintf("A raceable %s snail.", snailrace.SnailType(snail.Type)),
@@ -106,8 +106,8 @@ func OnNewSnail(ctx framework.EventContext) func(snailrace.Snail) {
 			return
 		}
 
-		ctx.Logger().Info("Registered snail card: ", snail.Id)
-		err = tradingcards.AssignCard(ctx.Database(), ctx.GetUser().ID, snail.Id)
+		ctx.Logger().Info("Registered snail card: ", snail.ID)
+		err = tradingcards.AssignCard(ctx.Database(), ctx.GetUser().ID, snail.ID)
 		if err != nil {
 			ctx.Logger().WithError(err).Error("Failed to assign snail card")
 			return
@@ -128,10 +128,10 @@ func handleJoinRequest(ctx framework.EventContext, raceId string) {
 	menuOptions := make([]discordgo.SelectMenuOption, len(snails))
 	for i, snail := range snails {
 		// Get the trading card usages
-		card, _ := tradingcards.GetUserCard(ctx.Database(), user.ID, snail.Id)
+		card, _ := tradingcards.GetUserCard(ctx.Database(), user.ID, snail.ID)
 		menuOptions[i] = discordgo.SelectMenuOption{
 			Label:   fmt.Sprintf("%s (%d/%d)", snail.Name, card.CurrentUsage, card.MaxUsage),
-			Value:   snail.Id,
+			Value:   snail.ID,
 			Default: false,
 		}
 	}

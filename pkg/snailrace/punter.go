@@ -70,7 +70,7 @@ func getHighestAttribute(snails []Snail, attribute string) string {
 			return false
 		}
 	})
-	return snails[0].Id
+	return snails[0].ID
 }
 
 // GetBet determines which snail a punter should bet on based on their
@@ -95,7 +95,7 @@ func (p Punter) GetBet(snails []Snail) (index int, amount int64) {
 		// Check if the snail has the highest attribute for each attribute
 		for a, attr := range attributes {
 			preferenceFlag := PreferenceSnailSpeed << a
-			if snail.Id == highestAttributes[attr] && p.Preference&preferenceFlag != 0 {
+			if snail.ID == highestAttributes[attr] && p.Preference&preferenceFlag != 0 {
 				possiblePicks = append(possiblePicks, i)
 			}
 		}

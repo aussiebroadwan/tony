@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -34,7 +32,7 @@ func setupPunters() error {
 		if err := database.Create(&punter).Error; err != nil {
 			return err
 		}
-		log.WithField("src", "snailrace").WithField("punter", punter.ID).Info("Generated punter")
+		// log.WithField("src", "snailrace").WithField("punter", punter.ID).Info("Generated punter")
 	}
 
 	return nil
@@ -55,7 +53,7 @@ func setupSnails() error {
 		if err := database.Create(&snail).Error; err != nil {
 			return err
 		}
-		log.WithField("src", "snailrace").WithField("snail", snail.Id).Info("Generated snail")
+		// log.WithField("src", "snailrace").WithField("snail", snail.ID).Info("Generated snail")
 	}
 
 	return nil

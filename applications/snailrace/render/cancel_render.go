@@ -14,7 +14,7 @@ func cancelledMessage(state snailrace.RaceState) (string, []discordgo.MessageCom
 			Label:    "Concluded",
 			Disabled: true,
 			Style:    discordgo.SuccessButton,
-			CustomID: "snailrace.host:" + state.Race.Id,
+			CustomID: "snailrace.host:" + state.Race.ID,
 		},
 	}
 }

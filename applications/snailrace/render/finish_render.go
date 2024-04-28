@@ -18,7 +18,7 @@ var betPayout = map[int]func(snailrace.RaceState, snailrace.UserBet, map[int]int
 
 func finishedMessage(state snailrace.RaceState, creditUser func(string, int64)) (string, []discordgo.MessageComponent) {
 
-	description := fmt.Sprintf("```\nRace ID: %s\n\n%s\n", state.Race.Id, buildTrack(state))
+	description := fmt.Sprintf("```\nRace ID: %s\n\n%s\n", state.Race.ID, buildTrack(state))
 	entrants := "Results:\n"
 
 	// Display the results
@@ -50,7 +50,7 @@ func finishedMessage(state snailrace.RaceState, creditUser func(string, int64)) 
 			Label:    "Concluded",
 			Disabled: true,
 			Style:    discordgo.SuccessButton,
-			CustomID: "snailrace.host:" + state.Race.Id,
+			CustomID: "snailrace.host:" + state.Race.ID,
 		},
 	}
 }
@@ -58,7 +58,7 @@ func finishedMessage(state snailrace.RaceState, creditUser func(string, int64)) 
 func payWinBet(state snailrace.RaceState, bet snailrace.UserBet, place map[int]int, creditUser func(string, int64)) {
 	if place, ok := place[bet.Snail1Index]; ok {
 		if place == 1 {
-			odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[bet.Snail1Index].Pool)
+			odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail1Index].Pool)
 			returns := int64(float64(bet.Amount) * odds)
 			creditUser(bet.UserId, returns)
 		}
@@ -67,7 +67,7 @@ func payWinBet(state snailrace.RaceState, bet snailrace.UserBet, place map[int]i
 func payPlaceBet(state snailrace.RaceState, bet snailrace.UserBet, place map[int]int, creditUser func(string, int64)) {
 	if place, ok := place[bet.Snail1Index]; ok {
 		if place <= 3 {
-			odds := snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.Snails[bet.Snail1Index].Pool)
+			odds := snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail1Index].Pool)
 			returns := int64(float64(bet.Amount) * odds)
 			creditUser(bet.UserId, returns)
 		}
@@ -82,12 +82,12 @@ func payEachWayBet(state snailrace.RaceState, bet snailrace.UserBet, place map[i
 			amount := float64(bet.Amount) / 2.0
 
 			// Check if the snail placed
-			placeOdds := snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.Snails[bet.Snail1Index].Pool)
+			placeOdds := snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail1Index].Pool)
 			returns := int64(amount * placeOdds)
 
 			// Check if the snail won
 			if place == 1 {
-				winOdds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[bet.Snail1Index].Pool)
+				winOdds := snailrace.CalculateOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail1Index].Pool)
 				win := int64(amount * winOdds)
 				returns += win
 			}
@@ -101,8 +101,8 @@ func payQuinellaBet(state snailrace.RaceState, bet snailrace.UserBet, place map[
 	snail2Place, ok2 := place[bet.Snail2Index]
 	if ok1 && ok2 {
 		if (snail1Place == 1 && snail2Place == 2) || (snail1Place == 2 && snail2Place == 1) {
-			odds := snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.Snails[bet.Snail1Index].Pool)
-			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.Snails[bet.Snail2Index].Pool)
+			odds := snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail1Index].Pool)
+			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail2Index].Pool)
 			returns := int64(float64(bet.Amount) * odds)
 			creditUser(bet.UserId, returns)
 		}
@@ -113,8 +113,8 @@ func payExactaBet(state snailrace.RaceState, bet snailrace.UserBet, place map[in
 	snail2Place, ok2 := place[bet.Snail2Index]
 	if ok1 && ok2 {
 		if snail1Place == 1 && snail2Place == 2 {
-			odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[bet.Snail1Index].Pool)
-			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.Snails[bet.Snail2Index].Pool)
+			odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail1Index].Pool)
+			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail2Index].Pool)
 			returns := int64(float64(bet.Amount) * odds)
 			creditUser(bet.UserId, returns)
 		}
@@ -127,9 +127,9 @@ func payTrifectaBet(state snailrace.RaceState, bet snailrace.UserBet, place map[
 
 	if ok1 && ok2 && ok3 {
 		if snail1Place == 1 && snail2Place == 2 && snail3Place == 3 {
-			odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[bet.Snail1Index].Pool)
-			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.Snails[bet.Snail2Index].Pool)
-			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.Snails[bet.Snail3Index].Pool)
+			odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail1Index].Pool)
+			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail2Index].Pool)
+			odds *= snailrace.CalculatePlaceOdds(state.Race.Pool, state.Race.SnailRaceLinks[bet.Snail3Index].Pool)
 			returns := int64(float64(bet.Amount) * odds)
 			creditUser(bet.UserId, returns)
 		}

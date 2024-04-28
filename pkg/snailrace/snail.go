@@ -45,7 +45,7 @@ func SnailType(t int) string {
 }
 
 type Snail struct {
-	Id      string `gorm:"primaryKey"`
+	ID      string `gorm:"primaryKey"`
 	OwnerId string
 	Name    string
 	Type    int
@@ -97,7 +97,7 @@ func GenerateSnail() Snail {
 
 	// Hash the snail's name and stats to generate a unique ID
 
-	s.Id = fmt.Sprintf("snail_%d%x", s.Type, hashSnail(s, s.Name))
+	s.ID = fmt.Sprintf("snail_%d%x", s.Type, hashSnail(s, s.Name))
 
 	return s
 }

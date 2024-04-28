@@ -9,11 +9,11 @@ import (
 
 func raceMessage(state snailrace.RaceState) (string, []discordgo.MessageComponent) {
 
-	description := fmt.Sprintf("```\nRace ID: %s\n\n%s\n", state.Race.Id, buildTrack(state))
+	description := fmt.Sprintf("```\nRace ID: %s\n\n%s\n", state.Race.ID, buildTrack(state))
 	entrants := "Entrants:\n"
 
 	for index, snail := range state.Snails {
-		odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.Snails[index].Pool)
+		odds := snailrace.CalculateOdds(state.Race.Pool, state.Race.SnailRaceLinks[index].Pool)
 		entrants += fmt.Sprintf("[%d]: %s @ %.02f\n", index, snail.Name, odds)
 	}
 	description += entrants + "```"
@@ -23,7 +23,7 @@ func raceMessage(state snailrace.RaceState) (string, []discordgo.MessageComponen
 			Label:    "Racing",
 			Disabled: true,
 			Style:    discordgo.SuccessButton,
-			CustomID: "snailrace.host:" + state.Race.Id,
+			CustomID: "snailrace.host:" + state.Race.ID,
 		},
 	}
 }

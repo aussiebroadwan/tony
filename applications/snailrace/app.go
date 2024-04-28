@@ -1,6 +1,9 @@
 package snailrace_app
 
 import (
+	"os"
+
+	"github.com/aussiebroadwan/tony/applications/snailrace/render"
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/pkg/snailrace"
 	"github.com/bwmarrin/discordgo"
@@ -38,6 +41,16 @@ func (s Snailrace) GetType() framework.AppType {
 
 func (s Snailrace) OnMount(ctx framework.MountContext) {
 	snailrace.SetupSnailraceDB(ctx.Database())
+
+	serverID := os.Getenv("DISCORD_SERVER_ID")
+	channelName := os.Getenv("SNAILRACE_TV_CHANNEL")
+
+	// Start the snailrace TV if the channel is set
+	if channelID := framework.ChannelNameToID(ctx, serverID, channelName); channelID != "" {
+		go snailrace.LaunchSnailraceTV(func() (snailrace.StateChangeCallback, snailrace.AchievementCallback, string, string) {
+			return render.StateRenderer(ctx, channelID)
+		})
+	}
 }
 
 func (s Snailrace) GetDefinition() *discordgo.ApplicationCommand {

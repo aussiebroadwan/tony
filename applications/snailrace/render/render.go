@@ -5,11 +5,11 @@ import (
 	"math"
 	"strings"
 
-	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/pkg/snailrace"
 	"github.com/aussiebroadwan/tony/pkg/wallet"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // Constants for embed colors and game messages.
@@ -21,13 +21,18 @@ const (
 	TrackWidth = 20.0
 )
 
+type snailraceCtx interface {
+	Session() *discordgo.Session
+	Database() *gorm.DB
+	Logger() *logrus.Entry
+}
+
 // stateRenderer sets up the messaging and functionality for rendering game states in blackjack.
-func StateRenderer(ctx framework.CommandContext) (snailrace.StateChangeCallback, snailrace.AchievementCallback, string, string) {
+func StateRenderer(ctx snailraceCtx, channelID string) (snailrace.StateChangeCallback, snailrace.AchievementCallback, string, string) {
 	session := ctx.Session()
-	interaction := ctx.Interaction()
 	database := ctx.Database()
 
-	msg, err := session.ChannelMessageSend(interaction.ChannelID, preparingGameMessage)
+	msg, err := session.ChannelMessageSend(channelID, preparingGameMessage)
 	if err != nil {
 		ctx.Logger().WithError(err).Error("Failed to create game message")
 		return nil, nil, "", ""
@@ -39,14 +44,14 @@ func StateRenderer(ctx framework.CommandContext) (snailrace.StateChangeCallback,
 		}
 	}
 
-	return createGameStateRenderFunc(ctx, session, creditUser), onAchievement(ctx), msg.ID, interaction.ChannelID
+	return createGameStateRenderFunc(ctx, session, creditUser), onAchievement(ctx), msg.ID, channelID
 }
 
 // onAchievement creates a function to handle achievement unlocks. It will
 // assign a card to the user if they unlock an achievement. If it fails to
 // assign the card it will return false, notifying the game to try again when
 // the condition is met.
-func onAchievement(ctx framework.CommandContext) snailrace.AchievementCallback {
+func onAchievement(ctx snailraceCtx) snailrace.AchievementCallback {
 	return func(userId string, achievement string) bool {
 		ctx.Logger().WithField("user", userId).Info("Achievement unlocked: " + achievement)
 		return true
@@ -54,7 +59,7 @@ func onAchievement(ctx framework.CommandContext) snailrace.AchievementCallback {
 }
 
 // createGameStateRenderFunc creates a function to render the game state based on the current stage.
-func createGameStateRenderFunc(ctx framework.CommandContext, session *discordgo.Session, creditUser func(string, int64)) snailrace.StateChangeCallback {
+func createGameStateRenderFunc(ctx snailraceCtx, session *discordgo.Session, creditUser func(string, int64)) snailrace.StateChangeCallback {
 	return func(raceState snailrace.RaceState, messageId, channelId string) {
 		ctx.Logger().WithFields(logrus.Fields{
 			"state":   raceState.State,

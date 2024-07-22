@@ -74,6 +74,7 @@ func main() {
 		walletApp.RegisterWalletApp(bot),
 
 		app.RegisterPingApp(bot),
+		app.RegisterVoteyThumbsApp(bot),
 
 		remind.RegisterRemindApp(bot),
 		autopin.RegisterAutopinApp(bot),

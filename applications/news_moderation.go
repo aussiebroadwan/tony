@@ -54,8 +54,10 @@ func (r ModerateNewsRule) OnMessage(ctx framework.MessageContext, channel *disco
 		return
 	}
 
+	content := ctx.Message().Content
+
 	// Test the message content
-	violation := r.test(ctx.Message().Content)
+	violation := r.test(content)
 	if violation == nil {
 		return
 	}
@@ -73,6 +75,9 @@ func (r ModerateNewsRule) OnMessage(ctx framework.MessageContext, channel *disco
 
 	// Send a direct message to the user
 	ctx.Session().ChannelMessageSend(dmChannel.ID, violation.Error())
+
+	// Send a copy of the original content to the user
+	sendOriginalMessageAsCodeblock(ctx, dmChannel.ID, content)
 }
 
 // Tests the rule against the content

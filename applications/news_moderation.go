@@ -74,7 +74,7 @@ func (r ModerateNewsRule) OnMessage(ctx framework.MessageContext, channel *disco
 	}
 
 	// Send a direct message to the user
-	ctx.Session().ChannelMessageSend(dmChannel.ID, violation.Error())
+	ctx.Session().ChannelMessageSend(dmChannel.ID, "**Error**: "+violation.Error())
 
 	// Send a copy of the original content to the user
 	sendOriginalMessageAsCodeblock(ctx, dmChannel.ID, content)

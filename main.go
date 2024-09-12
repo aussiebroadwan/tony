@@ -82,8 +82,8 @@ func main() {
 		blackjack_app.RegisterBlackjackApp(bot),
 		snailrace_app.RegisterSnailraceApp(bot),
 
-		app.RegisterNewsModeration(bot),
-		app.RegisterRSSModeration(bot),
+		// app.RegisterNewsModeration(bot),
+		// app.RegisterRSSModeration(bot),
 	)
 
 	// Run the bot
